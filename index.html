@@ -73,6 +73,25 @@
   .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
   .chip.src.active{background:#0f1830;border-color:#0f1830;}
 
+  .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;flex:0 0 auto;}
+  .seg button{border:0;background:var(--surface);color:var(--text-sub);padding:9px 14px;font-size:13px;font-weight:600;}
+  .seg button+button{border-left:1px solid var(--line-strong);}
+  .seg button.active{background:var(--accent);color:#fff;}
+  .ltable{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);}
+  .lhead,.lrow{display:grid;grid-template-columns:minmax(110px,1.1fr) minmax(150px,1.5fr) 132px minmax(140px,1.4fr) 92px;gap:12px;align-items:center;padding:11px 16px;}
+  .lhead{background:#fafbfc;border-bottom:1px solid var(--line);font-size:12px;color:var(--text-mute);font-weight:700;}
+  .lrow{border-top:1px solid var(--line);font-size:13px;cursor:pointer;}
+  .lrow:hover{background:#f7f8fa;}
+  .lrow .lname b{font-weight:700;}
+  .lrow .lname .pos{color:var(--text-sub);font-size:12px;margin-left:5px;}
+  .lrow .lcell{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lrow .lcell.sub{color:var(--text-sub);}
+  @media(max-width:760px){
+    .lhead{display:none;}
+    .lrow{grid-template-columns:1fr 1fr;gap:3px 10px;padding:12px 14px;}
+    .lrow .lname{grid-column:1/-1;}
+    .lrow .lcell.cat{grid-column:1/-1;}
+  }
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:hidden;transition:.14s;}
   .card:hover{box-shadow:var(--shadow);border-color:var(--line-strong);}
@@ -248,6 +267,10 @@
         <input id="mainSearch" placeholder="이름 · 회사 · 연락처 · 키워드 검색…" />
       </div>
       <button class="btn primary" data-view="add">＋ 새 데이터</button>
+      <div class="seg" id="viewToggle">
+        <button data-vm="card" title="카드형">▦ 카드</button>
+        <button data-vm="list" title="목록형">≣ 목록</button>
+      </div>
     </div>
     <div class="filters" id="scopeFilters">
       <span class="flabel">범위</span>
@@ -460,6 +483,7 @@
   const normCat=c=>CATS.includes(c)?c:"기타";
 
   let DB=load(), scope="all", catFilter="", projectFilter="", lastQuery="";
+  let viewMode=localStorage.getItem("customerDB.viewMode")||"card";
   const projText=p=>p.projects.map(x=>[x.name,x.period,x.role,x.status,x.note].join(" ")).join(" ");
 
   function fix(p){
@@ -637,9 +661,21 @@
       box.innerHTML=emptyState("아직 데이터가 없습니다","‘데이터 추가’에서 직접 입력하거나 엑셀을 가져오세요.","add","데이터 추가"); return;
     }
     if(!list.length){ box.innerHTML=emptyState("검색 결과가 없습니다","조건에 해당하는 데이터를 찾지 못했어요."); return; }
-    box.innerHTML=`<div style="color:var(--text-sub);font-size:13px;margin-bottom:12px">${list.length.toLocaleString()}명 표시됨</div>
-      <div class="grid">${list.slice(0,400).map(p=>card(p,q)).join("")}</div>
-      ${list.length>400?`<div style="text-align:center;color:var(--text-mute);padding:18px">상위 400명만 표시 중입니다. 검색으로 좁혀보세요.</div>`:""}`;
+    const head=`<div style="color:var(--text-sub);font-size:13px;margin-bottom:12px">${list.length.toLocaleString()}명 표시됨</div>`;
+    if(viewMode==="list"){
+      box.innerHTML=head+`<div class="ltable"><div class="lhead"><div>이름 · 직책</div><div>회사 · 부서</div><div>휴대폰</div><div>이메일</div><div>카테고리</div></div>${list.slice(0,800).map(p=>listRow(p,q)).join("")}</div>${list.length>800?`<div style="text-align:center;color:var(--text-mute);padding:18px">상위 800명 표시 중입니다. 검색으로 좁혀보세요.</div>`:""}`;
+    }else{
+      box.innerHTML=head+`<div class="grid">${list.slice(0,400).map(p=>card(p,q)).join("")}</div>${list.length>400?`<div style="text-align:center;color:var(--text-mute);padding:18px">상위 400명만 표시 중입니다. 검색으로 좁혀보세요.</div>`:""}`;
+    }
+  }
+  function listRow(p,q){
+    return `<div class="lrow" data-edit="${p.id}">
+      <div class="lcell lname"><b>${highlight(p.name,q)||"-"}</b>${p.position?`<span class="pos">${highlight(p.position,q)}</span>`:""}</div>
+      <div class="lcell sub">${highlight(p.company,q)||"-"}${p.dept?` · ${highlight(p.dept,q)}`:""}</div>
+      <div class="lcell">${p.phone?highlight(p.phone,q):"<span style='color:var(--text-mute)'>-</span>"}</div>
+      <div class="lcell sub">${p.email?highlight(p.email,q):""}</div>
+      <div class="lcell cat"><span class="src-badge" style="background:${CAT_COLOR[p.category]}1a;color:${CAT_COLOR[p.category]}">${esc(p.category)}</span></div>
+    </div>`;
   }
   function renderCatFilters(){
     const cnt={}; DB.forEach(p=>{ if(p.status==="expired")return; cnt[p.category]=(cnt[p.category]||0)+1; });
@@ -861,6 +897,11 @@
   };
 
   let st;
+  $$("#viewToggle button").forEach(b=>{
+    b.classList.toggle("active",b.dataset.vm===viewMode);
+    b.onclick=()=>{ viewMode=b.dataset.vm; localStorage.setItem("customerDB.viewMode",viewMode);
+      $$("#viewToggle button").forEach(x=>x.classList.toggle("active",x.dataset.vm===viewMode)); renderPeople(); };
+  });
   $("#mainSearch").addEventListener("input",e=>{ lastQuery=e.target.value; clearTimeout(st); st=setTimeout(renderPeople,120); });
   $("#projSearch").addEventListener("input",e=>{ projQuery=e.target.value; clearTimeout(st); st=setTimeout(renderProjects,120); });
   $$("#scopeFilters .chip").forEach(c=>c.onclick=()=>{ $$("#scopeFilters .chip").forEach(x=>x.classList.toggle("active",x===c)); scope=c.dataset.scope; renderPeople(); });
