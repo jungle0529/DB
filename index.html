@@ -832,12 +832,18 @@
     if(extra.status==="expired") base.status="expired";
     base.updatedAt=Date.now();
   }
+  // 병합 대상 찾기: 이름+회사(표기차 흡수) / 이름 없는 협력업체 행은 회사로 병합
+  function findDup(rec){
+    if(rec.name && rec.company) return DB.find(p=>norm(p.name)===norm(rec.name)&&normCompany(p.company)===normCompany(rec.company))||null;
+    if(!rec.name && rec.company) return DB.find(p=>!p.name&&normCompany(p.company)===normCompany(rec.company))||DB.find(p=>normCompany(p.company)===normCompany(rec.company))||null;
+    return null;
+  }
   function importRecords(recs){
     if(recs===null){ toast("헤더(이름/회사)를 찾지 못했습니다. 첫 줄을 확인하세요."); return false; }
     if(!recs.length){ toast("가져올 데이터가 없습니다."); return false; }
     let added=0,merged=0;
     recs.forEach(rec=>{
-      const dup=rec.name&&rec.company?DB.find(p=>norm(p.name)===norm(rec.name)&&norm(p.company)===norm(rec.company)):null;
+      const dup=findDup(rec);
       if(dup){ mergeInto(dup,rec); merged++; } else { DB.push(rec); added++; }
     });
     save();
@@ -861,7 +867,7 @@
         const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:"",raw:false});
         const recs=rowsToRecords(rows);
         if(recs&&recs.length){ recs.forEach(r=>{ if(!r.source) r.source=sn; });
-          recs.forEach(rec=>{ const dup=rec.name&&rec.company?DB.find(p=>norm(p.name)===norm(rec.name)&&norm(p.company)===norm(rec.company)):null; if(dup)mergeInto(dup,rec); else DB.push(rec); });
+          recs.forEach(rec=>{ const dup=findDup(rec); if(dup)mergeInto(dup,rec); else DB.push(rec); });
           total+=recs.length; }
       });
       if(total){ save(); toast(`등록 완료 · ${total}건 (${wb.SheetNames.length}개 시트)`); catFilter="";lastQuery="";scope="all";go("people");$("#mainSearch").value="";renderCatFilters();renderPeople(); }
