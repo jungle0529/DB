@@ -449,6 +449,11 @@
   const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const norm=s=>String(s??"").trim().toLowerCase().replace(/\s+/g,"");
   const strHash=s=>{ let h=0; for(let i=0;i<s.length;i++){ h=(Math.imul(h,31)+s.charCodeAt(i))|0; } return (h>>>0).toString(36); };
+  // 회사명 표기차 흡수: 법인격/구두점/공백 제거 (예: 코오롱글로벌(주)=코오롱글로벌)
+  const normCompany=s=>String(s||"").toLowerCase()
+    .replace(/주식회사|유한회사|유한책임회사|합자회사|합명회사|㈜|\(주\)|\(유\)|\(재\)|\(사\)|inc\.?|corp\.?|co\.?,?\s*ltd\.?|ltd\.?|llc/g,"")
+    .replace(/[\s.,\-_()（）/]/g,"");
+  const normPhone=s=>String(s||"").replace(/\D/g,"");
 
   const CATS=["건설","전시","하드웨어","대행","시행","기타"];
   const CAT_COLOR={"건설":"#2f6bff","전시":"#d9488a","하드웨어":"#1fa971","대행":"#e08a1e","시행":"#7c4dff","기타":"#646b75"};
@@ -890,10 +895,40 @@
   $("#modalDelete").onclick=()=>{ if(!editingId)return; if(!confirm("이 데이터를 삭제할까요? 복구할 수 없습니다."))return; DB=DB.filter(x=>x.id!==editingId); save(); closeModal(); toast("삭제되었습니다."); };
   document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
 
+  const isMobile=ph=>/^01[016789]\d{7,8}$/.test(normPhone(ph));
+  // 동일인 판정:
+  //  · 휴대폰이 같으면 이름 표기가 달라도 동일인 (박형일=박형일 사장님)
+  //  · 같은 이름이면서 회사(표기차 흡수)/이메일/유선번호가 같으면 동일인
+  //  (engineer@... 같은 공용 이메일 오인 병합 방지 위해 이메일은 이름이 같을 때만 적용)
   function dupGroups(){
-    const m=new Map();
-    DB.forEach(p=>{ if(p.status==="expired"||!p.name||!p.company)return; const k=norm(p.name)+"|"+norm(p.company); if(!m.has(k))m.set(k,[]); m.get(k).push(p); });
-    return [...m.values()].filter(g=>g.length>1);
+    const active=DB.filter(p=>p.status!=="expired" && p.name && norm(p.name));
+    const parent=active.map((_,i)=>i);
+    const find=i=>{ while(parent[i]!==i){ parent[i]=parent[parent[i]]; i=parent[i]; } return i; };
+    const uni=(a,b)=>{ parent[find(a)]=find(b); };
+    const seen={};
+    active.forEach((p,i)=>{
+      const nm=norm(p.name), keys=[];
+      if(isMobile(p.phone)) keys.push("m:"+normPhone(p.phone));            // 휴대폰: 이름 무관
+      const nc=normCompany(p.company); if(nc) keys.push("nc:"+nm+"|"+nc);  // 이름+회사(표기차 흡수)
+      if(p.email) keys.push("ne:"+nm+"|"+norm(p.email));                   // 이름+이메일
+      if(p.phone&&!isMobile(p.phone)&&normPhone(p.phone)) keys.push("nl:"+nm+"|"+normPhone(p.phone)); // 이름+유선
+      keys.forEach(k=>{ if(seen[k]!==undefined) uni(i,seen[k]); else seen[k]=i; });
+    });
+    const comp={};
+    active.forEach((p,i)=>{ const r=find(i); (comp[r]=comp[r]||[]).push(p); });
+    return Object.values(comp).filter(g=>g.length>1)
+      .sort((a,b)=>(a[0].name+a[0].company).localeCompare(b[0].name+b[0].company,"ko"));
+  }
+  // 가장 정보가 많은 레코드 점수
+  function completeness(p){
+    let s=0;
+    ["company","position","dept","phone","email","tel","address","collab","note"].forEach(f=>{ if(p[f]) s++; });
+    return s + p.tags.length + p.activities.length*2 + p.projects.length*2 + (p.company?normCompany(p.company).length*0.01:0);
+  }
+  function mergeGroup(g){ // 가장 완전한 항목을 남기고 나머지 병합·삭제
+    const keep=g.slice().sort((a,b)=>completeness(b)-completeness(a))[0];
+    g.filter(p=>p.id!==keep.id).forEach(p=>{ mergeInto(keep,p); DB=DB.filter(x=>x.id!==p.id); });
+    return keep;
   }
   function renderCleanup(){
     const groups=dupGroups();
@@ -901,14 +936,25 @@
     const da=$("#dupArea");
     if(!groups.length){ da.innerHTML=`<div style="color:var(--text-mute);padding:8px">중복된 데이터가 없습니다. 👍</div>`; }
     else{
-      da.innerHTML=groups.slice(0,200).map((g,gi)=>{
-        const rows=g.map((p,i)=>`<div class="dup-row">
-          <label class="keep"><input type="radio" name="keep-${gi}" value="${p.id}" ${i===0?"checked":""}></label>
-          <div class="info"><div class="nm">${esc(p.name)} <span style="color:var(--text-sub);font-weight:400">· ${esc(p.position||"직책없음")} · ${esc(p.source||"-")}</span></div>
-          <div class="dt">${esc(p.phone||"연락처없음")} · 활동 ${p.activities.length}건 · ${esc((p.email||""))}</div></div></div>`).join("");
-        return `<div class="dup-group"><div class="dup-head"><div class="who">${esc(g[0].name)} <span>@ ${esc(g[0].company)} · ${g.length}건</span></div>
+      const total=groups.reduce((n,g)=>n+g.length-1,0);
+      da.innerHTML=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+          <button class="btn sm primary" id="mergeAll">⚡ 전체 자동 병합 (${groups.length}그룹 · ${total}건 정리)</button>
+          <span style="color:var(--text-mute);font-size:12px">가장 정보가 많은 항목으로 자동 통합합니다. 개별 확인이 필요하면 아래에서 직접 선택하세요.</span>
+        </div>`+
+        groups.slice(0,300).map((g,gi)=>{
+        const best=g.slice().sort((a,b)=>completeness(b)-completeness(a))[0];
+        const rows=g.map(p=>`<div class="dup-row">
+          <label class="keep"><input type="radio" name="keep-${gi}" value="${p.id}" ${p.id===best.id?"checked":""}></label>
+          <div class="info"><div class="nm">${esc(p.name)} <span style="color:var(--text-sub);font-weight:400">· ${esc(p.position||"직책없음")}</span></div>
+          <div class="dt"><b style="color:var(--text-sub)">${esc(p.company||"-")}</b> · ${esc(p.phone||"연락처없음")} · ${esc(p.email||"")} · 활동 ${p.activities.length}·프로젝트 ${p.projects.length} · ${esc(p.source||"-")}</div></div></div>`).join("");
+        return `<div class="dup-group"><div class="dup-head"><div class="who">${esc(g[0].name)} <span>· ${g.length}건 (회사/연락처 일치)</span></div>
           <button class="btn sm primary" data-merge="${gi}">선택 항목으로 병합</button></div><div class="dup-rows">${rows}</div></div>`;
-      }).join("")+(groups.length>200?`<div style="color:var(--text-mute);padding:8px">외 ${groups.length-200}건 더 있습니다.</div>`:"");
+      }).join("")+(groups.length>300?`<div style="color:var(--text-mute);padding:8px">외 ${groups.length-300}그룹 더 있습니다. ‘전체 자동 병합’으로 한 번에 정리할 수 있어요.</div>`:"");
+      $("#mergeAll").onclick=()=>{
+        if(!confirm(`중복 ${groups.length}그룹을 자동 병합해 ${total}건을 정리할까요?\n각 그룹에서 정보가 가장 많은 항목을 남기고 나머지를 합칩니다.`)) return;
+        dupGroups().forEach(g=>mergeGroup(g));
+        save(); renderCleanup(); toast(`자동 병합 완료 · ${total}건 정리`);
+      };
       $$("[data-merge]",da).forEach(btn=>btn.onclick=()=>{
         const gi=+btn.dataset.merge, g=dupGroups()[gi]; if(!g)return;
         const keepId=$(`input[name="keep-${gi}"]:checked`)?.value||g[0].id, keep=g.find(p=>p.id===keepId);
