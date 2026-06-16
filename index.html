@@ -161,6 +161,20 @@
   .act-editor{margin-top:6px;display:flex;flex-direction:column;gap:8px;}
   .act-edit-row{display:grid;grid-template-columns:120px 110px 1fr auto;gap:8px;align-items:start;}
   .act-edit-row .inp{padding:8px 10px;}
+  .proj-edit-row{display:grid;grid-template-columns:1.3fr 100px 100px 110px 1fr auto;gap:8px;align-items:start;}
+  .proj-edit-row .inp{padding:8px 10px;}
+  .proj-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+  .proj-chip{background:#eef4ff;color:var(--accent-press);border:1px solid #d6e2ff;font-size:11.5px;padding:2px 9px;border-radius:6px;font-weight:600;}
+  .proj-item{border-left:2px solid #7c4dff;background:#faf9ff;padding:8px 11px;border-radius:0 8px 8px 0;font-size:12.5px;}
+  .proj-item .pn{font-weight:700;}
+  .proj-item .pm{color:var(--text-mute);font-size:11.5px;}
+  .acc-toggle.proj{background:#f3f0ff;color:#5b3fd0;}
+  .pj-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-sm);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:.12s;}
+  .pj-card:hover{border-color:var(--accent);box-shadow:var(--shadow);}
+  .pj-card .pj-name{font-weight:700;font-size:15px;}
+  .pj-card .pj-meta{color:var(--text-sub);font-size:12.5px;margin-top:3px;}
+  .proj-banner{background:#f3f0ff;border:1px solid #ddd3ff;color:#5b3fd0;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .proj-banner button{border:0;background:#5b3fd0;color:#fff;border-radius:7px;padding:5px 11px;font-size:12px;font-weight:600;}
 
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1c2330;color:#fff;padding:11px 18px;border-radius:11px;font-size:13.5px;font-weight:500;box-shadow:0 10px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.22s;z-index:90;display:flex;gap:9px;align-items:center;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -181,6 +195,8 @@
     .stats{grid-template-columns:repeat(2,1fr);}
     .act-edit-row{grid-template-columns:1fr 1fr;}
     .act-edit-row .full-sm{grid-column:1/-1;}
+    .proj-edit-row{grid-template-columns:1fr 1fr;}
+    .proj-edit-row .full-sm{grid-column:1/-1;}
   }
 </style>
 </head>
@@ -192,6 +208,7 @@
     <nav class="nav">
       <button data-view="dashboard" class="active">대시보드</button>
       <button data-view="people">검색 · 목록</button>
+      <button data-view="projects">협력 프로젝트</button>
       <button data-view="add">데이터 추가</button>
       <button data-view="clean">데이터 정리</button>
     </nav>
@@ -242,10 +259,24 @@
       <button class="chip" data-scope="contact">연락처</button>
       <button class="chip" data-scope="collab">협업</button>
       <button class="chip" data-scope="activity">활동</button>
+      <button class="chip" data-scope="project">프로젝트</button>
       <button class="chip" data-scope="tags">키워드</button>
     </div>
+    <div id="projBanner"></div>
     <div class="filters" id="catFilters"><span class="flabel">카테고리</span></div>
     <div id="peopleResult"></div>
+  </section>
+
+  <!-- Projects -->
+  <section class="view" id="view-projects">
+    <div class="page-head"><h1>협력 프로젝트</h1><p>올림플래닛과 협력한 프로젝트별로 참여 회사·담당자를 모아 봅니다.</p></div>
+    <div class="search-wrap">
+      <div class="search-box">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="projSearch" placeholder="프로젝트명/코드 검색 (예: ES0001)" />
+      </div>
+    </div>
+    <div id="projList"></div>
   </section>
 
   <!-- Add -->
@@ -277,6 +308,11 @@
             <label class="fld">소통 활동기록</label>
             <div class="act-editor" id="actEditor"></div>
             <button class="btn sm ghost" id="addActBtn" style="margin-top:8px">＋ 활동기록 추가</button>
+          </div>
+          <div class="full">
+            <label class="fld">협력 프로젝트 (올림플래닛 협업)</label>
+            <div class="act-editor" id="projEditor"></div>
+            <button class="btn sm ghost" id="addProjBtn" style="margin-top:8px">＋ 프로젝트 추가</button>
           </div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
@@ -358,6 +394,11 @@
           <div class="act-editor" id="mActEditor"></div>
           <button class="btn sm ghost" id="mAddActBtn" style="margin-top:8px">＋ 활동기록 추가</button>
         </div>
+        <div class="full">
+          <label class="fld">협력 프로젝트 (올림플래닛 협업)</label>
+          <div class="act-editor" id="mProjEditor"></div>
+          <button class="btn sm ghost" id="mAddProjBtn" style="margin-top:8px">＋ 프로젝트 추가</button>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
@@ -413,7 +454,8 @@
   const CAT_COLOR={"건설":"#2f6bff","전시":"#d9488a","하드웨어":"#1fa971","대행":"#e08a1e","시행":"#7c4dff","기타":"#646b75"};
   const normCat=c=>CATS.includes(c)?c:"기타";
 
-  let DB=load(), scope="all", catFilter="", lastQuery="";
+  let DB=load(), scope="all", catFilter="", projectFilter="", lastQuery="";
+  const projText=p=>p.projects.map(x=>[x.name,x.period,x.role,x.status,x.note].join(" ")).join(" ");
 
   function fix(p){
     return {
@@ -423,6 +465,7 @@
       collab:p.collab||"", note:p.note||"", source:p.source||"", category:normCat(p.category),
       tags:Array.isArray(p.tags)?p.tags:(p.tags?String(p.tags).split(",").map(t=>t.trim()).filter(Boolean):[]),
       activities:Array.isArray(p.activities)?p.activities.map(a=>({date:a.date||"",channel:a.channel||"",content:a.content||""})):[],
+      projects:Array.isArray(p.projects)?p.projects.map(x=>({name:x.name||"",period:x.period||"",role:x.role||"",status:x.status||"",note:x.note||""})).filter(x=>x.name||x.period||x.role||x.note):[],
       status:p.status==="expired"?"expired":"active",
       createdAt:p.createdAt||Date.now(), updatedAt:p.updatedAt||Date.now()
     };
@@ -451,6 +494,7 @@
     window.scrollTo({top:0,behavior:"smooth"});
     if(view==="clean") renderCleanup();
     if(view==="dashboard") renderDashboard();
+    if(view==="projects") renderProjects();
   }
   document.addEventListener("click",e=>{ const t=e.target.closest("[data-view]"); if(t) go(t.dataset.view); });
 
@@ -470,13 +514,15 @@
       case "collab":return p.collab;
       case "tags":return p.tags.join(" ");
       case "activity":return p.activities.map(a=>[a.date,a.channel,a.content].join(" ")).join(" ");
+      case "project":return projText(p);
       default:return [p.name,p.company,p.position,p.dept,p.phone,p.email,p.tel,p.address,p.collab,p.note,p.source,p.category,
-        p.tags.join(" "),p.activities.map(a=>[a.date,a.channel,a.content].join(" ")).join(" ")].join(" ");
+        p.tags.join(" "),p.activities.map(a=>[a.date,a.channel,a.content].join(" ")).join(" "),projText(p)].join(" ");
     }
   }
   function match(p,q,sc){
     if(p.status==="expired") return false;
     if(catFilter && p.category!==catFilter) return false;
+    if(projectFilter && !p.projects.some(x=>norm(x.name)===norm(projectFilter))) return false;
     if(!q) return true;
     return fieldText(p,sc).toLowerCase().includes(q.toLowerCase());
   }
@@ -508,6 +554,18 @@
           </div>`).join("")}
         </div>
       </div>`:"";
+    const projBlock=p.projects.length?`
+      <div class="activities">
+        <button class="acc-toggle proj" data-acc="p${p.id}"><span>🤝 협력 프로젝트 ${p.projects.length}건</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="act-list" id="acc-p${p.id}" style="display:none">
+          ${p.projects.map(x=>`<div class="proj-item">
+            <div class="pn">${highlight(x.name,q)||"(이름 없음)"}</div>
+            ${[x.period,x.role,x.status].filter(Boolean).length?`<div class="pm">${[x.period,x.role,x.status].filter(Boolean).map(s=>highlight(s,q)).join(" · ")}</div>`:""}
+            ${x.note?`<div class="act-content">${highlight(x.note,q)}</div>`:""}
+          </div>`).join("")}
+        </div>
+      </div>`:"";
     return `<article class="card" data-id="${p.id}">
       <div class="card-top">
         <div class="avatar">${initial}</div>
@@ -520,6 +578,7 @@
         </div>
       </div>
       <div class="card-body">${contact}${fieldRows}${tags}</div>
+      ${projBlock}
       ${actBlock}
     </article>`;
   }
@@ -528,7 +587,44 @@
     return `<div class="empty"><div class="em-ic">🗂️</div><h3>${esc(title)}</h3><p>${esc(desc)}</p>
       ${view?`<button class="btn primary" data-view="${view}">${esc(btn)}</button>`:""}</div>`;
   }
+  function renderProjBanner(){
+    const b=$("#projBanner");
+    if(!b) return;
+    if(projectFilter){
+      b.innerHTML=`<div class="proj-banner"><span>🤝 협력 프로젝트 <b>‘${esc(projectFilter)}’</b> 참여자만 보는 중</span><button id="clearProj">전체 보기</button></div>`;
+      $("#clearProj").onclick=()=>{ projectFilter=""; renderProjBanner(); renderPeople(); };
+    } else b.innerHTML="";
+  }
+  let projQuery="";
+  function projectIndex(){
+    const m=new Map();
+    DB.forEach(p=>{ if(p.status==="expired")return; p.projects.forEach(x=>{ const n=(x.name||"").trim(); if(!n)return;
+      if(!m.has(n)) m.set(n,[]); m.get(n).push(p); }); });
+    return m;
+  }
+  function renderProjects(){
+    const m=projectIndex();
+    const q=projQuery.trim().toLowerCase();
+    let list=[...m.entries()].filter(([n])=>!q||n.toLowerCase().includes(q))
+      .sort((a,b)=>b[1].length-a[1].length || a[0].localeCompare(b[0],"ko"));
+    const box=$("#projList");
+    if(!m.size){ box.innerHTML=`<div class="empty"><div class="em-ic">🤝</div><h3>등록된 협력 프로젝트가 없습니다</h3><p>인물 카드의 ✏️ 수정 또는 데이터 추가에서 ‘협력 프로젝트’를 입력하세요.</p></div>`; return; }
+    box.innerHTML=`<div style="color:var(--text-sub);font-size:13px;margin-bottom:12px">프로젝트 ${m.size.toLocaleString()}개${q?` · 검색결과 ${list.length}개`:""}</div>`+
+      list.slice(0,500).map(([n,ps])=>{
+        const comps=[...new Set(ps.map(p=>p.company).filter(Boolean))];
+        return `<div class="pj-card" data-proj="${esc(n)}">
+          <div class="pj-name">${esc(n)}</div>
+          <div class="pj-meta">참여 ${ps.length}명 · ${comps.slice(0,4).map(esc).join(", ")}${comps.length>4?` 외 ${comps.length-4}곳`:""}</div>
+        </div>`;
+      }).join("");
+    $$("[data-proj]",box).forEach(el=>el.onclick=()=>{
+      projectFilter=el.dataset.proj; lastQuery=""; scope="all"; catFilter="";
+      $("#mainSearch").value=""; $$("#scopeFilters .chip").forEach(x=>x.classList.toggle("active",x.dataset.scope==="all"));
+      go("people"); renderCatFilters(); renderProjBanner(); renderPeople();
+    });
+  }
   function renderPeople(){
+    renderProjBanner();
     const q=lastQuery.trim();
     const list=DB.filter(p=>match(p,q,scope)).sort((a,b)=>(a.company+a.name).localeCompare(b.company+b.name,"ko"));
     const box=$("#peopleResult");
@@ -580,8 +676,22 @@
   $("#addActBtn").onclick=()=>$("#actEditor").appendChild(actRow());
   $("#mAddActBtn").onclick=()=>$("#mActEditor").appendChild(actRow());
 
+  function projRow(x={name:"",period:"",role:"",status:"",note:""}){
+    const el=document.createElement("div"); el.className="proj-edit-row";
+    el.innerHTML=`<input class="inp" data-k="name" placeholder="프로젝트명/코드" value="${esc(x.name)}">
+      <input class="inp" data-k="period" placeholder="기간/연도" value="${esc(x.period)}">
+      <input class="inp" data-k="role" placeholder="역할" value="${esc(x.role)}">
+      <input class="inp" data-k="status" placeholder="상태" value="${esc(x.status)}">
+      <input class="inp full-sm" data-k="note" placeholder="비고" value="${esc(x.note)}">
+      <button class="icon-btn" title="삭제" type="button" onclick="this.parentElement.remove()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>`;
+    return el;
+  }
+  function readProjects(c){ return $$(".proj-edit-row",c).map(r=>({name:$('[data-k="name"]',r).value.trim(),period:$('[data-k="period"]',r).value.trim(),role:$('[data-k="role"]',r).value.trim(),status:$('[data-k="status"]',r).value.trim(),note:$('[data-k="note"]',r).value.trim()})).filter(x=>x.name||x.period||x.role||x.note); }
+  $("#addProjBtn").onclick=()=>$("#projEditor").appendChild(projRow());
+  $("#mAddProjBtn").onclick=()=>$("#mProjEditor").appendChild(projRow());
+
   const MF=["company","name","position","dept","phone","email","tel","source","address","tags","collab","note"];
-  function clearManual(){ MF.forEach(k=>$("#f-"+k).value=""); $("#f-category").value="기타"; $("#actEditor").innerHTML=""; $("#actEditor").appendChild(actRow()); }
+  function clearManual(){ MF.forEach(k=>$("#f-"+k).value=""); $("#f-category").value="기타"; $("#actEditor").innerHTML=""; $("#actEditor").appendChild(actRow()); $("#projEditor").innerHTML=""; $("#projEditor").appendChild(projRow()); }
   $("#clearFormBtn").onclick=clearManual;
   $("#saveManualBtn").onclick=()=>{
     const company=$("#f-company").value.trim(), name=$("#f-name").value.trim();
@@ -590,7 +700,7 @@
       phone:$("#f-phone").value.trim(),email:$("#f-email").value.trim(),tel:$("#f-tel").value.trim(),
       source:$("#f-source").value.trim()||"직접입력",category:$("#f-category").value,address:$("#f-address").value.trim(),
       tags:$("#f-tags").value.split(",").map(t=>t.trim()).filter(Boolean),
-      collab:$("#f-collab").value.trim(),note:$("#f-note").value.trim(),activities:readActs($("#actEditor"))}));
+      collab:$("#f-collab").value.trim(),note:$("#f-note").value.trim(),activities:readActs($("#actEditor")),projects:readProjects($("#projEditor"))}));
     save(); clearManual(); toast("저장되었습니다. ("+name+")");
   };
 
@@ -611,6 +721,7 @@
     address:["주소","소재지","address","위치"],
     collab:["협업업무","협업 업무","업무","협업","collab","담당업무"],
     activity:["활동기록","소통활동기록","소통 활동기록","활동","소통","로그","activity","메모"],
+    projects:["협력프로젝트","협력 프로젝트","프로젝트","projects","진행프로젝트","진행 프로젝트"],
     note:["비고","note","특이사항","remark"],
     source:["구분","출처","source","리스트"],
     category:["카테고리","분류","category"],
@@ -634,6 +745,14 @@
       return {date:"",channel:"",content:line};
     });
   }
+  function parseProjects(cell){
+    if(!cell) return [];
+    return String(cell).split(/\r?\n|;/).map(s=>s.trim()).filter(Boolean).map(line=>{
+      const p=line.split("|").map(s=>s.trim());
+      return {name:p[0]||"",period:p[1]||"",role:p[2]||"",status:p[3]||"",note:p.slice(4).join(" | ")||""};
+    }).filter(x=>x.name||x.period||x.role||x.note);
+  }
+  const projSerialize=p=>p.projects.map(x=>[x.name,x.period,x.role,x.status,x.note].join(" | ").replace(/( \| )+$/,"")).join("\n");
   function rowsToRecords(rows){
     if(!rows.length) return [];
     const headers=rows[0].map(c=>String(c??""));
@@ -653,6 +772,7 @@
         collab:get("collab"),note:get("note"),source:get("source"),category:get("category"),
         tags:get("tags").split(/[,，]/).map(t=>t.trim()).filter(Boolean),
         activities:parseActivities(get("activity")),
+        projects:parseProjects(get("projects")),
         status:/말소|만료|expired|해지/.test(st)?"expired":"active",
         updatedAt:isNaN(ut)?undefined:ut});
       if(rec.company||rec.name) recs.push(rec);
@@ -666,6 +786,8 @@
     base.source=[...new Set([...base.source.split(","),...extra.source.split(",")].map(s=>s.trim()).filter(Boolean))].join(",");
     const seen=new Set(base.activities.map(a=>norm(a.date+a.channel+a.content)));
     extra.activities.forEach(a=>{const k=norm(a.date+a.channel+a.content); if(!seen.has(k)){base.activities.push(a);seen.add(k);}});
+    const pseen=new Set(base.projects.map(x=>norm(x.name+x.period+x.role)));
+    extra.projects.forEach(x=>{const k=norm(x.name+x.period+x.role); if(!pseen.has(k)){base.projects.push(x);pseen.add(k);}});
     if(extra.status==="expired") base.status="expired";
     base.updatedAt=Date.now();
   }
@@ -723,18 +845,19 @@
 
   $("#btnExport").onclick=()=>{
     if(!DB.length){ toast("내보낼 데이터가 없습니다."); return; }
-    const rows=[["회사","이름","직책","부서","휴대폰","이메일","회사전화","주소","협업업무","활동기록","키워드","구분","비고","상태"]];
-    DB.forEach(p=>rows.push([p.company,p.name,p.position,p.dept,p.phone,p.email,p.tel,p.address,p.collab,
+    const rows=[["회사","이름","직책","부서","휴대폰","이메일","회사전화","주소","카테고리","협력프로젝트","협업업무","활동기록","키워드","구분","비고","상태"]];
+    DB.forEach(p=>rows.push([p.company,p.name,p.position,p.dept,p.phone,p.email,p.tel,p.address,p.category,projSerialize(p),p.collab,
       p.activities.map(a=>[a.date,a.channel,a.content].filter(Boolean).join(" | ")).join("\n"),
       p.tags.join(", "),p.source,p.note,p.status==="expired"?"말소":"정상"]));
     const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"]=[{wch:14},{wch:10},{wch:14},{wch:14},{wch:15},{wch:24},{wch:14},{wch:30},{wch:20},{wch:40},{wch:16},{wch:10},{wch:18},{wch:7}];
+    ws["!cols"]=[{wch:14},{wch:10},{wch:14},{wch:14},{wch:15},{wch:24},{wch:14},{wch:30},{wch:9},{wch:30},{wch:20},{wch:40},{wch:16},{wch:10},{wch:18},{wch:7}];
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"고객DB"); XLSX.writeFile(wb,"고객DB_내보내기.xlsx");
     toast("엑셀로 내보냈습니다.");
   };
 
   let st;
   $("#mainSearch").addEventListener("input",e=>{ lastQuery=e.target.value; clearTimeout(st); st=setTimeout(renderPeople,120); });
+  $("#projSearch").addEventListener("input",e=>{ projQuery=e.target.value; clearTimeout(st); st=setTimeout(renderProjects,120); });
   $$("#scopeFilters .chip").forEach(c=>c.onclick=()=>{ $$("#scopeFilters .chip").forEach(x=>x.classList.toggle("active",x===c)); scope=c.dataset.scope; renderPeople(); });
   $("#dashSearch").addEventListener("keydown",e=>{ if(e.key==="Enter"){ lastQuery=e.target.value; scope="all"; catFilter=""; $("#mainSearch").value=e.target.value; $$("#scopeFilters .chip").forEach(x=>x.classList.toggle("active",x.dataset.scope==="all")); go("people"); renderCatFilters(); renderPeople(); }});
 
@@ -747,6 +870,8 @@
     $("#m-tags").value=p.tags.join(", "); $("#m-status").value=p.status;
     const ed=$("#mActEditor"); ed.innerHTML="";
     (p.activities.length?p.activities:[{date:"",channel:"",content:""}]).forEach(a=>ed.appendChild(actRow(a)));
+    const ped=$("#mProjEditor"); ped.innerHTML="";
+    (p.projects.length?p.projects:[{name:"",period:"",role:"",status:"",note:""}]).forEach(x=>ped.appendChild(projRow(x)));
     $("#modalBack").classList.add("open");
   }
   function closeModal(){ $("#modalBack").classList.remove("open"); editingId=null; }
@@ -759,7 +884,7 @@
     if(!company||!name){ toast("회사와 이름은 필수입니다."); return; }
     ["company","name","position","dept","phone","email","tel","source","address","collab","note"].forEach(k=>p[k]=$("#m-"+k).value.trim());
     p.tags=$("#m-tags").value.split(",").map(t=>t.trim()).filter(Boolean);
-    p.status=$("#m-status").value; p.activities=readActs($("#mActEditor")); p.updatedAt=Date.now();
+    p.status=$("#m-status").value; p.activities=readActs($("#mActEditor")); p.projects=readProjects($("#mProjEditor")); p.updatedAt=Date.now();
     save(); closeModal(); toast("수정되었습니다.");
   };
   $("#modalDelete").onclick=()=>{ if(!editingId)return; if(!confirm("이 데이터를 삭제할까요? 복구할 수 없습니다."))return; DB=DB.filter(x=>x.id!==editingId); save(); closeModal(); toast("삭제되었습니다."); };
@@ -813,7 +938,7 @@
 
   /* ---------- 구글시트 동기화 ---------- */
   const SYNC_KEY="customerDB.sync";
-  const SYNC_COLS=["id","회사","이름","직책","부서","휴대폰","이메일","회사전화","주소","카테고리","출처","협업업무","활동기록","키워드","비고","상태","수정일시"];
+  const SYNC_COLS=["id","회사","이름","직책","부서","휴대폰","이메일","회사전화","주소","카테고리","출처","협업업무","활동기록","협력프로젝트","키워드","비고","상태","수정일시"];
   function loadSyncCfg(){ try{ return JSON.parse(localStorage.getItem(SYNC_KEY))||{url:"",auto:false}; }catch(e){ return {url:"",auto:false}; } }
   function saveSyncCfg(c){ localStorage.setItem(SYNC_KEY,JSON.stringify(c)); }
   let syncCfg=loadSyncCfg();
@@ -822,7 +947,7 @@
     const rows=[SYNC_COLS.slice()];
     DB.forEach(p=>rows.push([p.id,p.company,p.name,p.position,p.dept,p.phone,p.email,p.tel,p.address,p.category,p.source,p.collab,
       p.activities.map(a=>[a.date,a.channel,a.content].filter(Boolean).join(" | ")).join("\n"),
-      p.tags.join(", "),p.note,p.status==="expired"?"말소":"정상",new Date(p.updatedAt).toISOString()]));
+      projSerialize(p),p.tags.join(", "),p.note,p.status==="expired"?"말소":"정상",new Date(p.updatedAt).toISOString()]));
     return rows;
   }
   function mergeRemote(remote){
