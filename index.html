@@ -546,7 +546,7 @@
     const fieldRows=rows.map(([l,v,cls])=>`<div class="field-row ${cls}"><span class="lbl">${l}</span><span class="val">${v}</span></div>`).join("");
     const tags=p.tags.length?`<div class="tags">${p.tags.map(t=>`<span class="tag">${highlight(t,q)}</span>`).join("")}</div>`:"";
     const catB=`<span class="src-badge" style="background:${CAT_COLOR[p.category]}1a;color:${CAT_COLOR[p.category]}">${esc(p.category)}</span>`;
-    const src=catB+(p.source?` <span class="src-badge">${esc(p.source)}</span>`:"");
+    const src=catB;
     const acts=p.activities.filter(a=>a.date||a.channel||a.content);
     const actBlock=acts.length?`
       <div class="activities">
