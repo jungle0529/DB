@@ -389,6 +389,7 @@
     </div>
     <div class="modal-foot">
       <button class="btn ghost" id="syncSaveCfg">설정만 저장</button>
+      <button class="btn" id="syncTestBtn">연결 테스트</button>
       <button class="btn primary" id="syncNowBtn">지금 동기화</button>
     </div>
   </div>
@@ -835,6 +836,7 @@
     DB=[...byId.values()];
     return {added,updated};
   }
+  const withParam=(url,kv)=>url+(url.includes("?")?"&":"?")+kv;
   function jsonp(url){
     return new Promise((res,rej)=>{
       const cb="__sync_cb_"+Date.now()+Math.floor(Math.random()*1000);
@@ -842,16 +844,33 @@
       let done=false;
       function cleanup(){ delete window[cb]; if(s.parentNode) s.remove(); }
       window[cb]=d=>{ done=true; res(d); cleanup(); };
-      s.onerror=()=>{ if(!done){ rej(new Error("연결 실패 (URL/배포 확인)")); cleanup(); } };
-      s.src=url+(url.includes("?")?"&":"?")+"callback="+cb+"&t="+Date.now();
+      s.onerror=()=>{ if(!done){ rej(new Error("스크립트 차단")); cleanup(); } };
+      s.src=withParam(url,"callback="+cb+"&t="+Date.now());
       document.body.appendChild(s);
       setTimeout(()=>{ if(!done){ rej(new Error("응답 시간 초과")); cleanup(); } },20000);
     });
   }
-  function pushValues(url,values){
-    // no-cors: 요청은 전달되지만 응답은 읽지 못함 → 성공으로 간주
-    return fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body:JSON.stringify({action:"save",values})}).then(()=>true).catch(()=>{ throw new Error("업로드 실패"); });
+  // 읽기: ① CORS fetch(가장 안정적) → 실패 시 ② JSONP
+  async function syncRead(url){
+    let e1;
+    try{
+      const res=await fetch(withParam(url,"t="+Date.now()),{method:"GET",redirect:"follow"});
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      return JSON.parse(await res.text());
+    }catch(e){ e1=e; }
+    try{ return await jsonp(url); }
+    catch(e2){ throw new Error("읽기 실패 — fetch: "+(e1&&e1.message||"?")+" / jsonp: "+e2.message); }
+  }
+  // 쓰기: ① CORS POST → 실패 시 ② no-cors(요청만 전달)
+  async function pushValues(url,values){
+    const body=JSON.stringify({action:"save",values});
+    const opt={method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body};
+    try{
+      const res=await fetch(url,Object.assign({redirect:"follow"},opt));
+      if(res.ok) return true;
+    }catch(e){}
+    await fetch(url,Object.assign({mode:"no-cors"},opt));
+    return true;
   }
   let syncing=false;
   async function syncNow(){
@@ -861,7 +880,7 @@
     if(syncing) return; syncing=true;
     setSyncStatus("동기화 중…");
     try{
-      const data=await jsonp(url);
+      const data=await syncRead(url);
       if(!data||!data.ok) throw new Error("시트 응답 오류");
       const remote=rowsToRecords(data.values||[]) || [];
       const r=mergeRemote(remote);
@@ -887,6 +906,15 @@
   $("#syncClose").onclick=()=>$("#syncBack").classList.remove("open");
   $("#syncBack").addEventListener("click",e=>{ if(e.target===$("#syncBack")) $("#syncBack").classList.remove("open"); });
   $("#syncSaveCfg").onclick=()=>{ syncCfg.url=$("#syncUrl").value.trim(); syncCfg.auto=$("#syncAuto").checked; saveSyncCfg(syncCfg); toast("동기화 설정을 저장했습니다."); };
+  $("#syncTestBtn").onclick=async()=>{
+    const url=$("#syncUrl").value.trim(); if(!url){ toast("URL을 입력하세요."); return; }
+    setSyncStatus("연결 테스트 중…");
+    try{
+      const data=await syncRead(url);
+      if(data&&data.ok){ setSyncStatus(`✅ 연결 성공! 시트에 ${Math.max(0,(data.values||[]).length-1)}행 있음. ‘지금 동기화’를 누르세요.`); toast("연결 성공"); }
+      else setSyncStatus("⚠️ 응답은 왔지만 형식이 이상합니다: "+JSON.stringify(data).slice(0,120));
+    }catch(e){ setSyncStatus("❌ "+e.message); toast("연결 실패"); }
+  };
   $("#syncNowBtn").onclick=()=>{ syncCfg.url=$("#syncUrl").value.trim(); syncCfg.auto=$("#syncAuto").checked; saveSyncCfg(syncCfg); syncNow(); };
 
   clearManual(); refreshAll();
