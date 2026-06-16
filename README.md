@@ -26,9 +26,21 @@
 
 ## 데이터 보관
 
-입력한 데이터는 브라우저의 `localStorage`에 저장됩니다.
+입력한 데이터는 기본적으로 브라우저의 `localStorage`에 저장됩니다.
 - 같은 브라우저에서는 새로 열어도 데이터가 유지됩니다.
 - 다른 PC/브라우저로 옮기거나 백업하려면 **내보내기**로 엑셀을 저장하세요.
+
+## PC 간 공유 (구글시트 연동)
+
+여러 PC가 같은 데이터를 공유하려면 상단 **☁ 동기화**에서 구글시트(Apps Script 웹앱)를 연결하세요.
+설정 방법은 **[SHARING.md](SHARING.md)**, 붙여넣을 스크립트는 **[google-apps-script.gs](google-apps-script.gs)** 참고.
+동기화하면 시트와 내 데이터를 합쳐 양쪽을 최신 상태로 맞춥니다(같은 항목은 더 최근 수정본 유지).
+
+## 배포 (GitHub Pages)
+
+`main` 또는 작업 브랜치에 푸시하면 `.github/workflows/pages.yml`이 자동 배포합니다.
+최초 1회만 저장소 **Settings → Pages → Source: GitHub Actions** 로 설정하면 됩니다.
+주소: `https://<사용자>.github.io/<저장소>/`
 
 ## 엑셀 양식
 
