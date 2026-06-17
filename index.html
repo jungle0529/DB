@@ -484,6 +484,7 @@
 
   let DB=load(), scope="all", catFilter="", projectFilter="", lastQuery="";
   let viewMode=localStorage.getItem("customerDB.viewMode")||"card";
+  let tombs=loadTombs();
   const projText=p=>p.projects.map(x=>[x.name,x.period,x.role,x.status,x.note].join(" ")).join(" ");
 
   function fix(p){
@@ -512,7 +513,18 @@
     }
     return [];
   }
-  function save(){ try{localStorage.setItem(STORE_KEY,JSON.stringify(DB));}catch(e){toast("저장 공간이 부족합니다.");} refreshAll(); }
+  function save(){
+    // 삭제된 항목(툼스톤) 중 다시 존재하는 id는 정리
+    const have=new Set(DB.map(p=>p.id)); let ch=false;
+    for(const id in tombs){ if(have.has(id)){ delete tombs[id]; ch=true; } }
+    if(ch) saveTombs();
+    try{localStorage.setItem(STORE_KEY,JSON.stringify(DB));}catch(e){toast("저장 공간이 부족합니다.");}
+    refreshAll();
+  }
+  // ---- 삭제 기록(툼스톤): 동기화 시 되살아남 방지 ----
+  function loadTombs(){ try{ return JSON.parse(localStorage.getItem("customerDB.tombstones"))||{}; }catch(e){ return {}; } }
+  function saveTombs(){ try{ localStorage.setItem("customerDB.tombstones",JSON.stringify(tombs)); }catch(e){} }
+  function tombstone(ids){ const t=Date.now(); (ids||[]).forEach(id=>{ if(id) tombs[id]=t; }); saveTombs(); }
 
   let toastT;
   function toast(msg){ const el=$("#toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),2200); }
@@ -939,7 +951,7 @@
     p.status=$("#m-status").value; p.activities=readActs($("#mActEditor")); p.projects=readProjects($("#mProjEditor")); p.updatedAt=Date.now();
     save(); closeModal(); toast("수정되었습니다.");
   };
-  $("#modalDelete").onclick=()=>{ if(!editingId)return; if(!confirm("이 데이터를 삭제할까요? 복구할 수 없습니다."))return; DB=DB.filter(x=>x.id!==editingId); save(); closeModal(); toast("삭제되었습니다."); };
+  $("#modalDelete").onclick=()=>{ if(!editingId)return; if(!confirm("이 데이터를 삭제할까요? 복구할 수 없습니다."))return; tombstone([editingId]); DB=DB.filter(x=>x.id!==editingId); save(); closeModal(); toast("삭제되었습니다."); };
   document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
 
   const isMobile=ph=>/^01[016789]\d{7,8}$/.test(normPhone(ph));
@@ -974,6 +986,7 @@
   }
   function mergeGroup(g){ // 가장 완전한 항목을 남기고 나머지 병합·삭제
     const keep=g.slice().sort((a,b)=>completeness(b)-completeness(a))[0];
+    tombstone(g.filter(p=>p.id!==keep.id).map(p=>p.id));
     g.filter(p=>p.id!==keep.id).forEach(p=>{ mergeInto(keep,p); DB=DB.filter(x=>x.id!==p.id); });
     return keep;
   }
@@ -1005,6 +1018,7 @@
       $$("[data-merge]",da).forEach(btn=>btn.onclick=()=>{
         const gi=+btn.dataset.merge, g=dupGroups()[gi]; if(!g)return;
         const keepId=$(`input[name="keep-${gi}"]:checked`)?.value||g[0].id, keep=g.find(p=>p.id===keepId);
+        tombstone(g.filter(p=>p.id!==keepId).map(p=>p.id));
         g.filter(p=>p.id!==keepId).forEach(p=>{ mergeInto(keep,p); DB=DB.filter(x=>x.id!==p.id); });
         save(); renderCleanup(); toast("중복을 병합했습니다.");
       });
@@ -1017,8 +1031,8 @@
       ea.innerHTML=`<div style="margin-bottom:12px"><button class="btn danger sm" id="delAllExp">전체 ${exp.length}건 완전 삭제</button></div>`+
         exp.slice(0,300).map(p=>`<div class="dup-row" style="border:0;padding:8px 0"><div class="info"><div class="nm">${esc(p.name)} <span style="color:var(--text-sub);font-weight:400">@ ${esc(p.company)} · ${esc(p.position||"-")}</span></div></div>
           <button class="btn sm" data-restore="${p.id}">복구</button><button class="btn sm danger" data-delx="${p.id}">삭제</button></div>`).join("");
-      $("#delAllExp").onclick=()=>{ if(!confirm(`말소 데이터 ${exp.length}건을 완전 삭제할까요? 복구할 수 없습니다.`))return; DB=DB.filter(p=>p.status!=="expired"); save(); renderCleanup(); toast("말소 데이터를 삭제했습니다."); };
-      $$("[data-delx]",ea).forEach(b=>b.onclick=()=>{ if(!confirm("완전 삭제할까요?"))return; DB=DB.filter(p=>p.id!==b.dataset.delx); save(); renderCleanup(); toast("삭제되었습니다."); });
+      $("#delAllExp").onclick=()=>{ if(!confirm(`말소 데이터 ${exp.length}건을 완전 삭제할까요? 복구할 수 없습니다.`))return; tombstone(exp.map(p=>p.id)); DB=DB.filter(p=>p.status!=="expired"); save(); renderCleanup(); toast("말소 데이터를 삭제했습니다."); };
+      $$("[data-delx]",ea).forEach(b=>b.onclick=()=>{ if(!confirm("완전 삭제할까요?"))return; tombstone([b.dataset.delx]); DB=DB.filter(p=>p.id!==b.dataset.delx); save(); renderCleanup(); toast("삭제되었습니다."); });
       $$("[data-restore]",ea).forEach(b=>b.onclick=()=>{ const p=DB.find(x=>x.id===b.dataset.restore); if(p){p.status="active";p.updatedAt=Date.now();save();renderCleanup();toast("복구되었습니다.");} });
     }
   }
@@ -1047,6 +1061,7 @@
     const byId=new Map(DB.map(p=>[p.id,p]));
     let added=0,updated=0;
     remote.forEach(r=>{
+      if(tombs[r.id]) return; // 로컬에서 삭제/병합한 항목은 되살리지 않음
       const cur=byId.get(r.id);
       if(!cur){ byId.set(r.id,r); added++; }
       else if((r.updatedAt||0)>(cur.updatedAt||0)){ byId.set(r.id,r); updated++; }
