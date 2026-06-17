@@ -194,6 +194,15 @@
   .pj-card .pj-meta{color:var(--text-sub);font-size:12.5px;margin-top:3px;}
   .proj-banner{background:#f3f0ff;border:1px solid #ddd3ff;color:#5b3fd0;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
   .proj-banner button{border:0;background:#5b3fd0;color:#fff;border-radius:7px;padding:5px 11px;font-size:12px;font-weight:600;}
+  .mg-group{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;}
+  .mg-group h4{margin:0 0 4px;font-size:14px;}
+  .mg-group .mg-sum{font-size:12px;color:var(--text-mute);margin-bottom:6px;}
+  .mg-field{margin:9px 0;padding-top:8px;border-top:1px dashed var(--line);}
+  .mg-field .mfl{font-size:12px;color:var(--warn);font-weight:700;margin-bottom:5px;}
+  .mg-opt{display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;margin:4px 0;font-size:13px;cursor:pointer;}
+  .mg-opt:hover{background:#f7f8fa;}
+  .mg-opt input{margin:0;flex:0 0 auto;}
+  .mg-union{font-size:12px;color:var(--ok);margin-top:6px;}
 
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1c2330;color:#fff;padding:11px 18px;border-radius:11px;font-size:13.5px;font-weight:500;box-shadow:0 10px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.22s;z-index:90;display:flex;gap:9px;align-items:center;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -455,6 +464,22 @@
       <button class="btn ghost" id="syncSaveCfg">설정만 저장</button>
       <button class="btn" id="syncTestBtn">연결 테스트</button>
       <button class="btn primary" id="syncNowBtn">지금 동기화</button>
+    </div>
+  </div>
+</div>
+
+<!-- Merge conflict review modal -->
+<div class="modal-back" id="mergeBack">
+  <div class="modal" style="max-width:780px">
+    <div class="modal-head">
+      <h3 id="mergeTitle">중복 병합 확인</h3>
+      <button class="icon-btn" id="mergeClose"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body" id="mergeBody"></div>
+    <div class="modal-foot">
+      <span id="mergeInfo" style="margin-right:auto;color:var(--text-sub);font-size:12.5px"></span>
+      <button class="btn ghost" id="mergeCancel">취소</button>
+      <button class="btn primary" id="mergeApply">선택대로 병합</button>
     </div>
   </div>
 </div>
@@ -990,6 +1015,61 @@
     g.filter(p=>p.id!==keep.id).forEach(p=>{ mergeInto(keep,p); DB=DB.filter(x=>x.id!==p.id); });
     return keep;
   }
+  // ---- 충돌(값이 서로 다른 항목) 확인 후 필드별 선택 병합 ----
+  const MERGE_FIELDS=[["company","회사"],["name","이름"],["position","직책"],["dept","부서"],["phone","휴대폰"],["email","이메일"],["tel","회사전화"],["address","주소"],["category","카테고리"],["collab","협업 업무"],["note","비고"]];
+  const distinctVals=(g,f)=>{ const s=[]; g.forEach(p=>{ const v=String(p[f]||"").trim(); if(v&&!s.includes(v)) s.push(v); }); return s; };
+  const hasConflict=g=>MERGE_FIELDS.some(([f])=>distinctVals(g,f).length>1);
+  const bestRecord=g=>g.slice().sort((a,b)=>completeness(b)-completeness(a))[0];
+  function resolveMergeWithChoices(g,choices){
+    const keep=bestRecord(g);
+    tombstone(g.filter(p=>p.id!==keep.id).map(p=>p.id));
+    g.filter(p=>p.id!==keep.id).forEach(p=>{ mergeInto(keep,p); DB=DB.filter(x=>x.id!==p.id); });
+    Object.keys(choices||{}).forEach(f=>{ if(choices[f]!=null&&choices[f]!=="") keep[f]=choices[f]; });
+    keep.updatedAt=Date.now();
+    return keep;
+  }
+  let mergeBatch=[], mergeReopen=true;
+  function renderMergeBatch(groups){
+    mergeBatch=groups;
+    $("#mergeBody").innerHTML=groups.map((g,gi)=>{
+      const keep=bestRecord(g);
+      const fieldsHtml=MERGE_FIELDS.map(([f,label])=>{
+        const vals=distinctVals(g,f); if(vals.length<2) return "";
+        const def=vals.includes(keep[f])?keep[f]:vals[0];
+        return `<div class="mg-field"><div class="mfl">⚠ ${label} — 어떤 값으로 할까요?</div>${
+          vals.map(v=>`<label class="mg-opt"><input type="radio" name="mg-${gi}-${f}" value="${esc(v)}" ${v===def?"checked":""}><span>${esc(v)}</span></label>`).join("")}</div>`;
+      }).join("");
+      const tagU=[...new Set(g.flatMap(p=>p.tags))].length;
+      const actU=g.reduce((n,p)=>n+p.activities.length,0), prjU=g.reduce((n,p)=>n+p.projects.length,0);
+      return `<div class="mg-group" data-gi="${gi}"><h4>${esc(g[0].name)} <span style="font-weight:400;color:var(--text-sub)">· ${g.length}건 합침</span></h4>
+        <div class="mg-sum">${esc(g.map(p=>p.company).filter(Boolean).join("  /  "))}</div>
+        ${fieldsHtml}
+        <div class="mg-union">↳ 키워드·활동·프로젝트는 자동 합쳐집니다 (키워드 ${tagU} · 활동 ${actU} · 프로젝트 ${prjU})</div>
+      </div>`;
+    }).join("");
+  }
+  function openMergeReview(){
+    const conflicts=dupGroups().filter(hasConflict);
+    if(!conflicts.length){ $("#mergeBack").classList.remove("open"); renderCleanup(); toast("확인할 충돌이 없습니다."); return; }
+    mergeReopen=true;
+    const batch=conflicts.slice(0,60);
+    $("#mergeInfo").textContent=`충돌 ${conflicts.length}그룹${conflicts.length>60?` 중 ${batch.length}개 표시`:""}`;
+    renderMergeBatch(batch);
+    $("#mergeBack").classList.add("open");
+  }
+  function closeMerge(){ $("#mergeBack").classList.remove("open"); mergeBatch=[]; }
+  $("#mergeClose").onclick=closeMerge; $("#mergeCancel").onclick=()=>{ closeMerge(); renderCleanup(); };
+  $("#mergeBack").addEventListener("click",e=>{ if(e.target===$("#mergeBack")) closeMerge(); });
+  $("#mergeApply").onclick=()=>{
+    mergeBatch.forEach((g,gi)=>{
+      const choices={};
+      MERGE_FIELDS.forEach(([f])=>{ const sel=$(`input[name="mg-${gi}-${f}"]:checked`); if(sel) choices[f]=sel.value; });
+      resolveMergeWithChoices(g,choices);
+    });
+    save();
+    if(mergeReopen && dupGroups().filter(hasConflict).length){ openMergeReview(); }
+    else { closeMerge(); renderCleanup(); toast("충돌 병합 완료"); }
+  };
   function renderCleanup(){
     const groups=dupGroups();
     $("#dupCount").textContent=groups.length+"건";
@@ -997,9 +1077,11 @@
     if(!groups.length){ da.innerHTML=`<div style="color:var(--text-mute);padding:8px">중복된 데이터가 없습니다. 👍</div>`; }
     else{
       const total=groups.reduce((n,g)=>n+g.length-1,0);
+      const confCount=groups.filter(hasConflict).length, autoCount=groups.length-confCount;
       da.innerHTML=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-          <button class="btn sm primary" id="mergeAll">⚡ 전체 자동 병합 (${groups.length}그룹 · ${total}건 정리)</button>
-          <span style="color:var(--text-mute);font-size:12px">가장 정보가 많은 항목으로 자동 통합합니다. 개별 확인이 필요하면 아래에서 직접 선택하세요.</span>
+          <button class="btn sm primary" id="mergeAll">⚡ 자동 병합 + 충돌 확인</button>
+          ${confCount?`<button class="btn sm" id="reviewConf">충돌만 확인 (${confCount}그룹)</button>`:""}
+          <span style="color:var(--text-mute);font-size:12px">충돌 없는 ${autoCount}그룹은 자동 합치고, 값이 다른 ${confCount}그룹은 직접 선택합니다. 빈 항목은 자동으로 채워집니다.</span>
         </div>`+
         groups.slice(0,300).map((g,gi)=>{
         const best=g.slice().sort((a,b)=>completeness(b)-completeness(a))[0];
@@ -1011,16 +1093,18 @@
           <button class="btn sm primary" data-merge="${gi}">선택 항목으로 병합</button></div><div class="dup-rows">${rows}</div></div>`;
       }).join("")+(groups.length>300?`<div style="color:var(--text-mute);padding:8px">외 ${groups.length-300}그룹 더 있습니다. ‘전체 자동 병합’으로 한 번에 정리할 수 있어요.</div>`:"");
       $("#mergeAll").onclick=()=>{
-        if(!confirm(`중복 ${groups.length}그룹을 자동 병합해 ${total}건을 정리할까요?\n각 그룹에서 정보가 가장 많은 항목을 남기고 나머지를 합칩니다.`)) return;
-        dupGroups().forEach(g=>mergeGroup(g));
-        save(); renderCleanup(); toast(`자동 병합 완료 · ${total}건 정리`);
+        const gs=dupGroups(), noConf=gs.filter(g=>!hasConflict(g)), conf=gs.filter(hasConflict);
+        if(!gs.length) return;
+        if(!confirm(`충돌 없는 ${noConf.length}그룹을 자동 병합${conf.length?`하고, 값이 다른 ${conf.length}그룹은 선택 화면으로 진행`:""}할까요?`)) return;
+        noConf.forEach(g=>mergeGroup(g)); save();
+        if(conf.length) openMergeReview();
+        else { renderCleanup(); toast(`자동 병합 완료 · ${noConf.length}그룹`); }
       };
+      if($("#reviewConf")) $("#reviewConf").onclick=()=>openMergeReview();
       $$("[data-merge]",da).forEach(btn=>btn.onclick=()=>{
         const gi=+btn.dataset.merge, g=dupGroups()[gi]; if(!g)return;
-        const keepId=$(`input[name="keep-${gi}"]:checked`)?.value||g[0].id, keep=g.find(p=>p.id===keepId);
-        tombstone(g.filter(p=>p.id!==keepId).map(p=>p.id));
-        g.filter(p=>p.id!==keepId).forEach(p=>{ mergeInto(keep,p); DB=DB.filter(x=>x.id!==p.id); });
-        save(); renderCleanup(); toast("중복을 병합했습니다.");
+        if(hasConflict(g)){ mergeReopen=false; $("#mergeInfo").textContent="1그룹 병합"; renderMergeBatch([g]); $("#mergeBack").classList.add("open"); return; }
+        mergeGroup(g); save(); renderCleanup(); toast("병합 완료(빈 항목 자동 채움).");
       });
     }
     const exp=DB.filter(p=>p.status==="expired");
