@@ -501,7 +501,8 @@
   const strHash=s=>{ let h=0; for(let i=0;i<s.length;i++){ h=(Math.imul(h,31)+s.charCodeAt(i))|0; } return (h>>>0).toString(36); };
   // 회사명 표기차 흡수: 법인격/구두점/공백 제거 (예: 코오롱글로벌(주)=코오롱글로벌)
   const normCompany=s=>String(s||"").toLowerCase()
-    .replace(/주식회사|유한회사|유한책임회사|합자회사|합명회사|㈜|\(주\)|\(유\)|\(재\)|\(사\)|inc\.?|corp\.?|co\.?,?\s*ltd\.?|ltd\.?|llc/g,"")
+    .replace(/\([^)]*\)|（[^）]*）/g,"")  // 괄호 안 내용 제거: 에이에스피 이미지(ASP IMAGE)=에이에스피이미지
+    .replace(/주식회사|유한회사|유한책임회사|합자회사|합명회사|㈜|inc\.?|corp\.?|co\.?,?\s*ltd\.?|ltd\.?|llc/g,"")
     .replace(/[\s.,\-_()（）/]/g,"");
   const normPhone=s=>String(s||"").replace(/\D/g,"");
   // 숫자만 입력해도 자동으로 하이픈(-) 삽입. 직접 넣은 하이픈은 무시하고 표준 형식으로 정렬.
