@@ -522,6 +522,9 @@
     el.addEventListener("input",()=>{ el.value=fmtPhone(el.value); });
     el.addEventListener("blur",()=>{ el.value=fmtPhone(el.value); });
   }
+  // 협력 프로젝트 날짜 정렬(최신순). 날짜 있는 항목 먼저, 없는 항목은 뒤로.
+  function projDate(x){ const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(x&&x.period||"")); return m?m[1]+m[2]+m[3]:""; }
+  function sortProjects(arr){ return (arr||[]).slice().sort((a,b)=>{ const da=projDate(a),db=projDate(b); if(da&&db) return db.localeCompare(da); if(da) return -1; if(db) return 1; return 0; }); }
   // 금액: 숫자 입력 시 천단위 콤마 자동 삽입 (₩ 기호가 있으면 유지)
   function fmtMoney(v){
     const s=String(v||""); const hasWon=/₩/.test(s);
@@ -547,11 +550,11 @@
       collab:p.collab||"", note:p.note||"", source:p.source||"", category:normCat(p.category),
       tags:Array.isArray(p.tags)?p.tags:(p.tags?String(p.tags).split(",").map(t=>t.trim()).filter(Boolean):[]),
       activities:Array.isArray(p.activities)?p.activities.map(a=>({date:a.date||"",channel:a.channel||"",content:a.content||""})):[],
-      projects:Array.isArray(p.projects)?p.projects.map(x=>{
+      projects:sortProjects((Array.isArray(p.projects)?p.projects:[]).map(x=>{
         let amount=x.amount||"", note=x.note||"";
         if(!amount && /₩|원/.test(note)){ amount=note; note=""; } // 기존 금액(비고에 들어간 값)을 금액칸으로 이동
         return {name:x.name||"",period:x.period||"",amount,role:x.role||"",status:x.status||"",note};
-      }).filter(x=>x.name||x.period||x.amount||x.note):[],
+      }).filter(x=>x.name||x.period||x.amount||x.note)),
       status:p.status==="expired"?"expired":"active",
       createdAt:p.createdAt||Date.now(), updatedAt:p.updatedAt||Date.now()
     };
@@ -1008,7 +1011,7 @@
     if(!company||!name){ toast("회사와 이름은 필수입니다."); return; }
     ["company","name","position","dept","phone","email","tel","source","address","collab","note"].forEach(k=>p[k]=$("#m-"+k).value.trim());
     p.tags=$("#m-tags").value.split(",").map(t=>t.trim()).filter(Boolean);
-    p.status=$("#m-status").value; p.category=$("#m-category").value; p.activities=readActs($("#mActEditor")); p.projects=readProjects($("#mProjEditor")); p.updatedAt=Date.now();
+    p.status=$("#m-status").value; p.category=$("#m-category").value; p.activities=readActs($("#mActEditor")); p.projects=sortProjects(readProjects($("#mProjEditor"))); p.updatedAt=Date.now();
     save(); closeModal(); toast("수정되었습니다.");
   };
   $("#modalDelete").onclick=()=>{ if(!editingId)return; if(!confirm("이 데이터를 삭제할까요? 복구할 수 없습니다."))return; tombstone([editingId]); DB=DB.filter(x=>x.id!==editingId); save(); closeModal(); toast("삭제되었습니다."); };
