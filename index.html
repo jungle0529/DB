@@ -332,6 +332,7 @@
           <div><label class="fld">회사전화</label><input class="inp" id="f-tel" placeholder="02-000-0000"></div>
           <div><label class="fld">카테고리</label><select class="inp" id="f-category"></select></div>
           <div><label class="fld">출처 (선택)</label><input class="inp" id="f-source" list="srcList" placeholder="예: 직접입력 / 전시회 명함"><datalist id="srcList"></datalist></div>
+          <div><label class="fld">사업자등록번호</label><input class="inp" id="f-bizno" placeholder="000-00-00000"></div>
           <div class="full"><label class="fld">주소</label><input class="inp" id="f-address" placeholder="회사 주소"></div>
           <div class="full"><label class="fld">키워드 (쉼표로 구분)</label><input class="inp" id="f-tags" placeholder="예: 시공사, VIP"></div>
           <div class="full"><label class="fld">협업 업무</label><textarea class="inp" id="f-collab" placeholder="함께 진행한 업무/프로젝트"></textarea></div>
@@ -416,6 +417,7 @@
         <div><label class="fld">회사전화</label><input class="inp" id="m-tel"></div>
         <div><label class="fld">카테고리</label><select class="inp" id="m-category"></select></div>
         <div><label class="fld">출처 (선택)</label><input class="inp" id="m-source" list="srcList"></div>
+        <div><label class="fld">사업자등록번호</label><input class="inp" id="m-bizno"></div>
         <div class="full"><label class="fld">주소</label><input class="inp" id="m-address"></div>
         <div><label class="fld">키워드 (쉼표 구분)</label><input class="inp" id="m-tags"></div>
         <div><label class="fld">상태</label><select class="inp" id="m-status"><option value="active">정상</option><option value="expired">말소</option></select></div>
@@ -533,8 +535,8 @@
     return (hasWon?"₩":"")+Number(d).toLocaleString("en-US");
   }
 
-  const CATS=["건설","전시","하드웨어","대행","시행","기타"];
-  const CAT_COLOR={"건설":"#2f6bff","전시":"#d9488a","하드웨어":"#1fa971","대행":"#e08a1e","시행":"#7c4dff","기타":"#646b75"};
+  const CATS=["건설","시행","대행","전시","XR제작","영상","CG","촬영","모델링","하드웨어","운송","개발","기타"];
+  const CAT_COLOR={"건설":"#2f6bff","시행":"#7c4dff","대행":"#e08a1e","전시":"#d9488a","XR제작":"#1fa971","영상":"#0ea5b7","CG":"#6366f1","촬영":"#db2777","모델링":"#0d9488","하드웨어":"#16a34a","운송":"#a16207","개발":"#2563eb","기타":"#646b75"};
   const normCat=c=>CATS.includes(c)?c:"기타";
 
   let DB=load(), scope="all", catFilter="", projectFilter="", lastQuery="";
@@ -546,7 +548,7 @@
     return {
       id:p.id||uid(),
       company:p.company||"", name:p.name||"", position:p.position||"", dept:p.dept||"",
-      phone:p.phone||"", email:p.email||"", tel:p.tel||"", fax:p.fax||"", address:p.address||"",
+      phone:p.phone||"", email:p.email||"", tel:p.tel||"", fax:p.fax||"", address:p.address||"", bizno:p.bizno||"",
       collab:p.collab||"", note:p.note||"", source:p.source||"", category:normCat(p.category),
       tags:Array.isArray(p.tags)?p.tags:(p.tags?String(p.tags).split(",").map(t=>t.trim()).filter(Boolean):[]),
       activities:Array.isArray(p.activities)?p.activities.map(a=>({date:a.date||"",channel:a.channel||"",content:a.content||""})):[],
@@ -615,7 +617,7 @@
       case "tags":return p.tags.join(" ");
       case "activity":return p.activities.map(a=>[a.date,a.channel,a.content].join(" ")).join(" ");
       case "project":return projText(p);
-      default:return [p.name,p.company,p.position,p.dept,p.phone,p.email,p.tel,p.address,p.collab,p.note,p.source,p.category,
+      default:return [p.name,p.company,p.position,p.dept,p.phone,p.email,p.tel,p.bizno,p.address,p.collab,p.note,p.source,p.category,
         p.tags.join(" "),p.activities.map(a=>[a.date,a.channel,a.content].join(" ")).join(" "),projText(p)].join(" ");
     }
   }
@@ -635,6 +637,7 @@
     if(p.tel)     ci.push(`<span class="ci">☎️ ${highlight(p.tel,q)}</span>`);
     const contact=ci.length?`<div class="contact">${ci.join("")}</div>`:"";
     const rows=[];
+    if(p.bizno)   rows.push(["사업자",highlight(p.bizno,q),""]);
     if(p.address) rows.push(["주소",highlight(p.address,q),""]);
     if(p.collab)  rows.push(["협업",highlight(p.collab,q),""]);
     if(p.note)    rows.push(["비고",highlight(p.note,q),"note"]);
@@ -806,7 +809,7 @@
   $("#addProjBtn").onclick=()=>$("#projEditor").appendChild(projRow());
   $("#mAddProjBtn").onclick=()=>$("#mProjEditor").appendChild(projRow());
 
-  const MF=["company","name","position","dept","phone","email","tel","source","address","tags","collab","note"];
+  const MF=["company","name","position","dept","phone","email","tel","source","bizno","address","tags","collab","note"];
   function clearManual(){ MF.forEach(k=>$("#f-"+k).value=""); $("#f-category").value="기타"; $("#actEditor").innerHTML=""; $("#actEditor").appendChild(actRow()); $("#projEditor").innerHTML=""; $("#projEditor").appendChild(projRow()); }
   $("#clearFormBtn").onclick=clearManual;
   $("#saveManualBtn").onclick=()=>{
@@ -814,7 +817,7 @@
     if(!company||!name){ toast("회사와 이름은 필수입니다."); return; }
     DB.push(fix({company,name,position:$("#f-position").value.trim(),dept:$("#f-dept").value.trim(),
       phone:$("#f-phone").value.trim(),email:$("#f-email").value.trim(),tel:$("#f-tel").value.trim(),
-      source:$("#f-source").value.trim()||"직접입력",category:$("#f-category").value,address:$("#f-address").value.trim(),
+      source:$("#f-source").value.trim()||"직접입력",category:$("#f-category").value,bizno:$("#f-bizno").value.trim(),address:$("#f-address").value.trim(),
       tags:$("#f-tags").value.split(",").map(t=>t.trim()).filter(Boolean),
       collab:$("#f-collab").value.trim(),note:$("#f-note").value.trim(),activities:readActs($("#actEditor")),projects:readProjects($("#projEditor"))}));
     save(); clearManual(); toast("저장되었습니다. ("+name+")");
@@ -835,6 +838,7 @@
     email:["이메일","메일","email","e-mail"],
     tel:["회사전화","전화","대표전화","유선","tel","전화번호"],
     address:["주소","소재지","address","위치"],
+    bizno:["사업자번호","사업자등록번호","사업자","bizno","사업자 번호"],
     collab:["협업업무","협업 업무","업무","협업","collab","담당업무"],
     activity:["활동기록","소통활동기록","소통 활동기록","활동","소통","로그","activity","메모"],
     projects:["협력프로젝트","협력 프로젝트","프로젝트","projects","진행프로젝트","진행 프로젝트"],
@@ -884,7 +888,7 @@
       if(!id) id="auto_"+strHash(norm(name)+"|"+norm(company)+"|"+norm(phone)+"|"+norm(email)); // 반복 가져오기 시 중복 방지
       const ut=Date.parse(get("updatedAt"));
       const rec=fix({id,company,name,position:get("position"),dept:get("dept"),
-        phone,email,tel:get("tel"),address:get("address"),
+        phone,email,tel:get("tel"),address:get("address"),bizno:get("bizno"),
         collab:get("collab"),note:get("note"),source:get("source"),category:get("category"),
         tags:get("tags").split(/[,，]/).map(t=>t.trim()).filter(Boolean),
         activities:parseActivities(get("activity")),
@@ -896,9 +900,9 @@
     return recs;
   }
   function mergeInto(base,extra){
-    ["position","dept","phone","email","tel","fax","address","collab","note"].forEach(f=>{ if(!base[f]&&extra[f]) base[f]=extra[f]; });
+    ["position","dept","phone","email","tel","fax","address","bizno","collab","note"].forEach(f=>{ if(!base[f]&&extra[f]) base[f]=extra[f]; });
     base.tags=[...new Set([...base.tags,...extra.tags])];
-    if(base.category==="기타"&&extra.category!=="기타") base.category=extra.category;
+    if(extra.category && extra.category!=="기타" && (base.category==="기타"||base.category==="전시"||!CATS.includes(base.category))) base.category=extra.category;
     base.source=[...new Set([...base.source.split(","),...extra.source.split(",")].map(s=>s.trim()).filter(Boolean))].join(",");
     const seen=new Set(base.activities.map(a=>norm(a.date+a.channel+a.content)));
     extra.activities.forEach(a=>{const k=norm(a.date+a.channel+a.content); if(!seen.has(k)){base.activities.push(a);seen.add(k);}});
@@ -909,7 +913,10 @@
   }
   // 병합 대상 찾기: 이름+회사(표기차 흡수) / 이름 없는 협력업체 행은 회사로 병합
   function findDup(rec){
-    if(rec.name && rec.company) return DB.find(p=>norm(p.name)===norm(rec.name)&&normCompany(p.company)===normCompany(rec.company))||null;
+    if(rec.name && rec.company){ const m=DB.find(p=>norm(p.name)===norm(rec.name)&&normCompany(p.company)===normCompany(rec.company)); if(m) return m; }
+    // 회사 + 휴대폰/이메일 일치 → 같은 업체(이름 표기 달라도)
+    if(rec.company && rec.phone && normPhone(rec.phone)){ const m=DB.find(p=>normCompany(p.company)===normCompany(rec.company)&&normPhone(p.phone)===normPhone(rec.phone)); if(m) return m; }
+    if(rec.company && rec.email){ const m=DB.find(p=>normCompany(p.company)===normCompany(rec.company)&&p.email&&norm(p.email)===norm(rec.email)); if(m) return m; }
     if(!rec.name && rec.company) return DB.find(p=>!p.name&&normCompany(p.company)===normCompany(rec.company))||DB.find(p=>normCompany(p.company)===normCompany(rec.company))||null;
     return null;
   }
@@ -967,8 +974,8 @@
 
   $("#btnExport").onclick=()=>{
     if(!DB.length){ toast("내보낼 데이터가 없습니다."); return; }
-    const rows=[["회사","이름","직책","부서","휴대폰","이메일","회사전화","주소","카테고리","협력프로젝트","협업업무","활동기록","키워드","구분","비고","상태"]];
-    DB.forEach(p=>rows.push([p.company,p.name,p.position,p.dept,p.phone,p.email,p.tel,p.address,p.category,projSerialize(p),p.collab,
+    const rows=[["회사","이름","직책","부서","휴대폰","이메일","회사전화","사업자번호","주소","카테고리","협력프로젝트","협업업무","활동기록","키워드","구분","비고","상태"]];
+    DB.forEach(p=>rows.push([p.company,p.name,p.position,p.dept,p.phone,p.email,p.tel,p.bizno,p.address,p.category,projSerialize(p),p.collab,
       p.activities.map(a=>[a.date,a.channel,a.content].filter(Boolean).join(" | ")).join("\n"),
       p.tags.join(", "),p.source,p.note,p.status==="expired"?"말소":"정상"]));
     const ws=XLSX.utils.aoa_to_sheet(rows);
@@ -993,7 +1000,7 @@
   let editingId=null;
   function openEdit(id){
     const p=DB.find(x=>x.id===id); if(!p)return; editingId=id;
-    ["company","name","position","dept","phone","email","tel","source","address","collab","note"].forEach(k=>$("#m-"+k).value=p[k]||"");
+    ["company","name","position","dept","phone","email","tel","source","bizno","address","collab","note"].forEach(k=>$("#m-"+k).value=p[k]||"");
     $("#m-tags").value=p.tags.join(", "); $("#m-status").value=p.status; $("#m-category").value=normCat(p.category);
     const ed=$("#mActEditor"); ed.innerHTML="";
     (p.activities.length?p.activities:[{date:"",channel:"",content:""}]).forEach(a=>ed.appendChild(actRow(a)));
@@ -1009,7 +1016,7 @@
     const p=DB.find(x=>x.id===editingId); if(!p)return;
     const company=$("#m-company").value.trim(), name=$("#m-name").value.trim();
     if(!company||!name){ toast("회사와 이름은 필수입니다."); return; }
-    ["company","name","position","dept","phone","email","tel","source","address","collab","note"].forEach(k=>p[k]=$("#m-"+k).value.trim());
+    ["company","name","position","dept","phone","email","tel","source","bizno","address","collab","note"].forEach(k=>p[k]=$("#m-"+k).value.trim());
     p.tags=$("#m-tags").value.split(",").map(t=>t.trim()).filter(Boolean);
     p.status=$("#m-status").value; p.category=$("#m-category").value; p.activities=readActs($("#mActEditor")); p.projects=sortProjects(readProjects($("#mProjEditor"))); p.updatedAt=Date.now();
     save(); closeModal(); toast("수정되었습니다.");
@@ -1166,14 +1173,14 @@
 
   /* ---------- 구글시트 동기화 ---------- */
   const SYNC_KEY="customerDB.sync";
-  const SYNC_COLS=["id","회사","이름","직책","부서","휴대폰","이메일","회사전화","주소","카테고리","출처","협업업무","활동기록","협력프로젝트","키워드","비고","상태","수정일시"];
+  const SYNC_COLS=["id","회사","이름","직책","부서","휴대폰","이메일","회사전화","사업자번호","주소","카테고리","출처","협업업무","활동기록","협력프로젝트","키워드","비고","상태","수정일시"];
   function loadSyncCfg(){ try{ return JSON.parse(localStorage.getItem(SYNC_KEY))||{url:"",auto:false}; }catch(e){ return {url:"",auto:false}; } }
   function saveSyncCfg(c){ localStorage.setItem(SYNC_KEY,JSON.stringify(c)); }
   let syncCfg=loadSyncCfg();
 
   function valuesFromDB(){
     const rows=[SYNC_COLS.slice()];
-    DB.forEach(p=>rows.push([p.id,p.company,p.name,p.position,p.dept,p.phone,p.email,p.tel,p.address,p.category,p.source,p.collab,
+    DB.forEach(p=>rows.push([p.id,p.company,p.name,p.position,p.dept,p.phone,p.email,p.tel,p.bizno,p.address,p.category,p.source,p.collab,
       p.activities.map(a=>[a.date,a.channel,a.content].filter(Boolean).join(" | ")).join("\n"),
       projSerialize(p),p.tags.join(", "),p.note,p.status==="expired"?"말소":"정상",new Date(p.updatedAt).toISOString()]));
     return rows;
