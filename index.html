@@ -502,6 +502,26 @@
     .replace(/주식회사|유한회사|유한책임회사|합자회사|합명회사|㈜|\(주\)|\(유\)|\(재\)|\(사\)|inc\.?|corp\.?|co\.?,?\s*ltd\.?|ltd\.?|llc/g,"")
     .replace(/[\s.,\-_()（）/]/g,"");
   const normPhone=s=>String(s||"").replace(/\D/g,"");
+  // 숫자만 입력해도 자동으로 하이픈(-) 삽입. 직접 넣은 하이픈은 무시하고 표준 형식으로 정렬.
+  function fmtPhone(v){
+    const d=String(v||"").replace(/\D/g,"");
+    if(!d) return "";
+    if(d[0]!=="0"){ return d.length<=4 ? d : (d.slice(0,4)+"-"+d.slice(4,8)); } // 1588 등 대표번호
+    if(d.startsWith("02")){
+      if(d.length<=2) return d;
+      if(d.length<=5) return d.slice(0,2)+"-"+d.slice(2);
+      if(d.length<=9) return d.slice(0,2)+"-"+d.slice(2,d.length-4)+"-"+d.slice(d.length-4);
+      return d.slice(0,2)+"-"+d.slice(2,6)+"-"+d.slice(6,10);
+    }
+    if(d.length<=3) return d;
+    if(d.length<=7) return d.slice(0,3)+"-"+d.slice(3);
+    if(d.length<=10) return d.slice(0,3)+"-"+d.slice(3,d.length-4)+"-"+d.slice(d.length-4);
+    return d.slice(0,3)+"-"+d.slice(3,7)+"-"+d.slice(7,11);
+  }
+  function bindPhone(el){ if(!el) return;
+    el.addEventListener("input",()=>{ el.value=fmtPhone(el.value); });
+    el.addEventListener("blur",()=>{ el.value=fmtPhone(el.value); });
+  }
 
   const CATS=["건설","전시","하드웨어","대행","시행","기타"];
   const CAT_COLOR={"건설":"#2f6bff","전시":"#d9488a","하드웨어":"#1fa971","대행":"#e08a1e","시행":"#7c4dff","기타":"#646b75"};
@@ -1234,6 +1254,7 @@
   };
   $("#syncNowBtn").onclick=()=>{ syncCfg.url=$("#syncUrl").value.trim(); syncCfg.auto=$("#syncAuto").checked; saveSyncCfg(syncCfg); syncNow(); };
 
+  ["f-phone","f-tel","m-phone","m-tel"].forEach(id=>bindPhone($("#"+id)));
   clearManual(); refreshAll();
   if(syncCfg.url && syncCfg.auto) syncNow();
 })();
