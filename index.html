@@ -956,7 +956,7 @@
   function openEdit(id){
     const p=DB.find(x=>x.id===id); if(!p)return; editingId=id;
     ["company","name","position","dept","phone","email","tel","source","address","collab","note"].forEach(k=>$("#m-"+k).value=p[k]||"");
-    $("#m-tags").value=p.tags.join(", "); $("#m-status").value=p.status;
+    $("#m-tags").value=p.tags.join(", "); $("#m-status").value=p.status; $("#m-category").value=normCat(p.category);
     const ed=$("#mActEditor"); ed.innerHTML="";
     (p.activities.length?p.activities:[{date:"",channel:"",content:""}]).forEach(a=>ed.appendChild(actRow(a)));
     const ped=$("#mProjEditor"); ped.innerHTML="";
@@ -973,7 +973,7 @@
     if(!company||!name){ toast("회사와 이름은 필수입니다."); return; }
     ["company","name","position","dept","phone","email","tel","source","address","collab","note"].forEach(k=>p[k]=$("#m-"+k).value.trim());
     p.tags=$("#m-tags").value.split(",").map(t=>t.trim()).filter(Boolean);
-    p.status=$("#m-status").value; p.activities=readActs($("#mActEditor")); p.projects=readProjects($("#mProjEditor")); p.updatedAt=Date.now();
+    p.status=$("#m-status").value; p.category=$("#m-category").value; p.activities=readActs($("#mActEditor")); p.projects=readProjects($("#mProjEditor")); p.updatedAt=Date.now();
     save(); closeModal(); toast("수정되었습니다.");
   };
   $("#modalDelete").onclick=()=>{ if(!editingId)return; if(!confirm("이 데이터를 삭제할까요? 복구할 수 없습니다."))return; tombstone([editingId]); DB=DB.filter(x=>x.id!==editingId); save(); closeModal(); toast("삭제되었습니다."); };
