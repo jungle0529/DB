@@ -994,7 +994,7 @@
   function closeModal(){ $("#modalBack").classList.remove("open"); editingId=null; }
   document.addEventListener("click",e=>{ const t=e.target.closest("[data-edit]"); if(t) openEdit(t.dataset.edit); });
   $("#modalClose").onclick=closeModal; $("#modalCancel").onclick=closeModal;
-  $("#modalBack").addEventListener("click",e=>{ if(e.target===$("#modalBack")) closeModal(); });
+  // 바깥 클릭으로는 닫지 않음(실수로 입력 내용 손실 방지) — 취소/저장/X로만 닫힘
   $("#modalSave").onclick=()=>{
     const p=DB.find(x=>x.id===editingId); if(!p)return;
     const company=$("#m-company").value.trim(), name=$("#m-name").value.trim();
@@ -1005,7 +1005,6 @@
     save(); closeModal(); toast("수정되었습니다.");
   };
   $("#modalDelete").onclick=()=>{ if(!editingId)return; if(!confirm("이 데이터를 삭제할까요? 복구할 수 없습니다."))return; tombstone([editingId]); DB=DB.filter(x=>x.id!==editingId); save(); closeModal(); toast("삭제되었습니다."); };
-  document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
 
   const isMobile=ph=>/^01[016789]\d{7,8}$/.test(normPhone(ph));
   // 동일인 판정:
