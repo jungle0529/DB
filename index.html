@@ -1047,10 +1047,19 @@
       if(p.phone&&!isMobile(p.phone)&&normPhone(p.phone)) keys.push("nl:"+nm+"|"+normPhone(p.phone)); // 이름+유선
       keys.forEach(k=>{ if(seen[k]!==undefined) uni(i,seen[k]); else seen[k]=i; });
     });
-    // 협력업체: 같은 회사면 하나로(이름 없는 플레이스홀더/표기차 포함). 고객사(이름들이 제각각)에는 적용 안 함
+    // 협력업체의 '이름 없는' 플레이스홀더만 정리: 서로 다른 이름의 담당자는 합치지 않음
     const vendNc={}; active.forEach(p=>{ const nc=normCompany(p.company); if(nc&&isVend(p)) vendNc[nc]=true; });
-    const firstNc={};
-    active.forEach((p,i)=>{ const nc=normCompany(p.company); if(nc&&vendNc[nc]){ if(firstNc[nc]!==undefined) uni(i,firstNc[nc]); else firstNc[nc]=i; } });
+    const namelessByNc={}, nameRepByNc={};
+    active.forEach((p,i)=>{ const nc=normCompany(p.company); if(!nc||!vendNc[nc]) return;
+      if(!norm(p.name)) (namelessByNc[nc]=namelessByNc[nc]||[]).push(i);
+      else { (nameRepByNc[nc]=nameRepByNc[nc]||{})[norm(p.name)]=i; }
+    });
+    Object.keys(namelessByNc).forEach(nc=>{
+      const idxs=namelessByNc[nc];
+      for(let k=1;k<idxs.length;k++) uni(idxs[k],idxs[0]);        // 빈 레코드끼리 합침
+      const names=nameRepByNc[nc]?Object.keys(nameRepByNc[nc]):[];
+      if(names.length===1) uni(idxs[0], nameRepByNc[nc][names[0]]); // 담당자가 한 명뿐이면 빈 레코드를 그쪽으로
+    });
     const comp={};
     active.forEach((p,i)=>{ const r=find(i); (comp[r]=comp[r]||[]).push(p); });
     return Object.values(comp).filter(g=>g.length>1)
