@@ -180,7 +180,7 @@
   .act-editor{margin-top:6px;display:flex;flex-direction:column;gap:8px;}
   .act-edit-row{display:grid;grid-template-columns:120px 110px 1fr auto;gap:8px;align-items:start;}
   .act-edit-row .inp{padding:8px 10px;}
-  .proj-edit-row{display:grid;grid-template-columns:1.3fr 100px 100px 110px 1fr auto;gap:8px;align-items:start;}
+  .proj-edit-row{display:grid;grid-template-columns:1.4fr 150px 1.6fr auto;gap:8px;align-items:start;}
   .proj-edit-row .inp{padding:8px 10px;}
   .proj-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
   .proj-chip{background:#eef4ff;color:var(--accent-press);border:1px solid #d6e2ff;font-size:11.5px;padding:2px 9px;border-radius:6px;font-weight:600;}
@@ -647,7 +647,7 @@
         <div class="act-list" id="acc-p${p.id}" style="display:none">
           ${p.projects.map(x=>`<div class="proj-item">
             <div class="pn">${highlight(x.name,q)||"(이름 없음)"}</div>
-            ${[x.period,x.role,x.status].filter(Boolean).length?`<div class="pm">${[x.period,x.role,x.status].filter(Boolean).map(s=>highlight(s,q)).join(" · ")}</div>`:""}
+            ${x.period?`<div class="pm">📅 ${highlight(x.period,q)}</div>`:""}
             ${x.note?`<div class="act-content">${highlight(x.note,q)}</div>`:""}
           </div>`).join("")}
         </div>
@@ -776,15 +776,18 @@
 
   function projRow(x={name:"",period:"",role:"",status:"",note:""}){
     const el=document.createElement("div"); el.className="proj-edit-row";
+    const isDate=/^\d{4}-\d{2}-\d{2}$/.test(x.period||"");
+    el.dataset.role=x.role||""; el.dataset.status=x.status||""; el.dataset.orig=x.period||"";
     el.innerHTML=`<input class="inp" data-k="name" placeholder="프로젝트명/코드" value="${esc(x.name)}">
-      <input class="inp" data-k="period" placeholder="기간/연도" value="${esc(x.period)}">
-      <input class="inp" data-k="role" placeholder="역할" value="${esc(x.role)}">
-      <input class="inp" data-k="status" placeholder="상태" value="${esc(x.status)}">
-      <input class="inp full-sm" data-k="note" placeholder="비고" value="${esc(x.note)}">
+      <input class="inp" type="date" data-k="period" value="${isDate?esc(x.period):""}" title="${esc(x.period)}">
+      <input class="inp full-sm" data-k="note" placeholder="진행 내용" value="${esc(x.note)}">
       <button class="icon-btn" title="삭제" type="button" onclick="this.parentElement.remove()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>`;
     return el;
   }
-  function readProjects(c){ return $$(".proj-edit-row",c).map(r=>({name:$('[data-k="name"]',r).value.trim(),period:$('[data-k="period"]',r).value.trim(),role:$('[data-k="role"]',r).value.trim(),status:$('[data-k="status"]',r).value.trim(),note:$('[data-k="note"]',r).value.trim()})).filter(x=>x.name||x.period||x.role||x.note); }
+  function readProjects(c){ return $$(".proj-edit-row",c).map(r=>{
+    const dv=$('[data-k="period"]',r).value.trim();
+    return {name:$('[data-k="name"]',r).value.trim(), period:dv||r.dataset.orig||"", role:r.dataset.role||"", status:r.dataset.status||"", note:$('[data-k="note"]',r).value.trim()};
+  }).filter(x=>x.name||x.period||x.note); }
   $("#addProjBtn").onclick=()=>$("#projEditor").appendChild(projRow());
   $("#mAddProjBtn").onclick=()=>$("#mProjEditor").appendChild(projRow());
 
