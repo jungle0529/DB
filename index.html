@@ -180,7 +180,7 @@
   .act-editor{margin-top:6px;display:flex;flex-direction:column;gap:8px;}
   .act-edit-row{display:grid;grid-template-columns:120px 110px 1fr auto;gap:8px;align-items:start;}
   .act-edit-row .inp{padding:8px 10px;}
-  .proj-edit-row{display:grid;grid-template-columns:1.4fr 150px 1.6fr auto;gap:8px;align-items:start;}
+  .proj-edit-row{display:grid;grid-template-columns:1.3fr 140px 0.9fr 1.4fr auto;gap:8px;align-items:start;}
   .proj-edit-row .inp{padding:8px 10px;}
   .proj-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
   .proj-chip{background:#eef4ff;color:var(--accent-press);border:1px solid #d6e2ff;font-size:11.5px;padding:2px 9px;border-radius:6px;font-weight:600;}
@@ -530,7 +530,7 @@
   let DB=load(), scope="all", catFilter="", projectFilter="", lastQuery="";
   let viewMode=localStorage.getItem("customerDB.viewMode")||"card";
   let tombs=loadTombs();
-  const projText=p=>p.projects.map(x=>[x.name,x.period,x.role,x.status,x.note].join(" ")).join(" ");
+  const projText=p=>p.projects.map(x=>[x.name,x.period,x.amount,x.note].join(" ")).join(" ");
 
   function fix(p){
     return {
@@ -540,7 +540,11 @@
       collab:p.collab||"", note:p.note||"", source:p.source||"", category:normCat(p.category),
       tags:Array.isArray(p.tags)?p.tags:(p.tags?String(p.tags).split(",").map(t=>t.trim()).filter(Boolean):[]),
       activities:Array.isArray(p.activities)?p.activities.map(a=>({date:a.date||"",channel:a.channel||"",content:a.content||""})):[],
-      projects:Array.isArray(p.projects)?p.projects.map(x=>({name:x.name||"",period:x.period||"",role:x.role||"",status:x.status||"",note:x.note||""})).filter(x=>x.name||x.period||x.role||x.note):[],
+      projects:Array.isArray(p.projects)?p.projects.map(x=>{
+        let amount=x.amount||"", note=x.note||"";
+        if(!amount && /₩|원/.test(note)){ amount=note; note=""; } // 기존 금액(비고에 들어간 값)을 금액칸으로 이동
+        return {name:x.name||"",period:x.period||"",amount,role:x.role||"",status:x.status||"",note};
+      }).filter(x=>x.name||x.period||x.amount||x.note):[],
       status:p.status==="expired"?"expired":"active",
       createdAt:p.createdAt||Date.now(), updatedAt:p.updatedAt||Date.now()
     };
@@ -647,7 +651,7 @@
         <div class="act-list" id="acc-p${p.id}" style="display:none">
           ${p.projects.map(x=>`<div class="proj-item">
             <div class="pn">${highlight(x.name,q)||"(이름 없음)"}</div>
-            ${x.period?`<div class="pm">📅 ${highlight(x.period,q)}</div>`:""}
+            ${(x.period||x.amount)?`<div class="pm">${[x.period?"📅 "+highlight(x.period,q):"",x.amount?"💰 "+highlight(x.amount,q):""].filter(Boolean).join(" · ")}</div>`:""}
             ${x.note?`<div class="act-content">${highlight(x.note,q)}</div>`:""}
           </div>`).join("")}
         </div>
@@ -774,20 +778,21 @@
   $("#addActBtn").onclick=()=>$("#actEditor").appendChild(actRow());
   $("#mAddActBtn").onclick=()=>$("#mActEditor").appendChild(actRow());
 
-  function projRow(x={name:"",period:"",role:"",status:"",note:""}){
+  function projRow(x={name:"",period:"",amount:"",role:"",status:"",note:""}){
     const el=document.createElement("div"); el.className="proj-edit-row";
     const isDate=/^\d{4}-\d{2}-\d{2}$/.test(x.period||"");
     el.dataset.role=x.role||""; el.dataset.status=x.status||""; el.dataset.orig=x.period||"";
     el.innerHTML=`<input class="inp" data-k="name" placeholder="프로젝트명/코드" value="${esc(x.name)}">
       <input class="inp" type="date" data-k="period" value="${isDate?esc(x.period):""}" title="${esc(x.period)}">
+      <input class="inp" data-k="amount" placeholder="금액" value="${esc(x.amount||"")}">
       <input class="inp full-sm" data-k="note" placeholder="진행 내용" value="${esc(x.note)}">
       <button class="icon-btn" title="삭제" type="button" onclick="this.parentElement.remove()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>`;
     return el;
   }
   function readProjects(c){ return $$(".proj-edit-row",c).map(r=>{
     const dv=$('[data-k="period"]',r).value.trim();
-    return {name:$('[data-k="name"]',r).value.trim(), period:dv||r.dataset.orig||"", role:r.dataset.role||"", status:r.dataset.status||"", note:$('[data-k="note"]',r).value.trim()};
-  }).filter(x=>x.name||x.period||x.note); }
+    return {name:$('[data-k="name"]',r).value.trim(), period:dv||r.dataset.orig||"", amount:$('[data-k="amount"]',r).value.trim(), role:r.dataset.role||"", status:r.dataset.status||"", note:$('[data-k="note"]',r).value.trim()};
+  }).filter(x=>x.name||x.period||x.amount||x.note); }
   $("#addProjBtn").onclick=()=>$("#projEditor").appendChild(projRow());
   $("#mAddProjBtn").onclick=()=>$("#mProjEditor").appendChild(projRow());
 
@@ -850,10 +855,10 @@
     if(!cell) return [];
     return String(cell).split(/\r?\n|;/).map(s=>s.trim()).filter(Boolean).map(line=>{
       const p=line.split("|").map(s=>s.trim());
-      return {name:p[0]||"",period:p[1]||"",role:p[2]||"",status:p[3]||"",note:p.slice(4).join(" | ")||""};
-    }).filter(x=>x.name||x.period||x.role||x.note);
+      return {name:p[0]||"",period:p[1]||"",amount:p[2]||"",note:p.slice(3).join(" | ")||""};
+    }).filter(x=>x.name||x.period||x.amount||x.note);
   }
-  const projSerialize=p=>p.projects.map(x=>[x.name,x.period,x.role,x.status,x.note].join(" | ").replace(/( \| )+$/,"")).join("\n");
+  const projSerialize=p=>p.projects.map(x=>[x.name,x.period,x.amount||"",x.note].join(" | ").replace(/( \| )+$/,"")).join("\n");
   function rowsToRecords(rows){
     if(!rows.length) return [];
     const headers=rows[0].map(c=>String(c??""));
@@ -887,8 +892,8 @@
     base.source=[...new Set([...base.source.split(","),...extra.source.split(",")].map(s=>s.trim()).filter(Boolean))].join(",");
     const seen=new Set(base.activities.map(a=>norm(a.date+a.channel+a.content)));
     extra.activities.forEach(a=>{const k=norm(a.date+a.channel+a.content); if(!seen.has(k)){base.activities.push(a);seen.add(k);}});
-    const pseen=new Set(base.projects.map(x=>norm(x.name+x.period+x.role)));
-    extra.projects.forEach(x=>{const k=norm(x.name+x.period+x.role); if(!pseen.has(k)){base.projects.push(x);pseen.add(k);}});
+    const pseen=new Set(base.projects.map(x=>norm(x.name+x.period+(x.amount||""))));
+    extra.projects.forEach(x=>{const k=norm(x.name+x.period+(x.amount||"")); if(!pseen.has(k)){base.projects.push(x);pseen.add(k);}});
     if(extra.status==="expired") base.status="expired";
     base.updatedAt=Date.now();
   }
