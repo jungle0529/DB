@@ -918,7 +918,9 @@
     // 회사 + 휴대폰/이메일 일치 → 같은 업체(이름 표기 달라도)
     if(rec.company && rec.phone && normPhone(rec.phone)){ const m=DB.find(p=>normCompany(p.company)===normCompany(rec.company)&&normPhone(p.phone)===normPhone(rec.phone)); if(m) return m; }
     if(rec.company && rec.email){ const m=DB.find(p=>normCompany(p.company)===normCompany(rec.company)&&p.email&&norm(p.email)===norm(rec.email)); if(m) return m; }
-    if(!rec.name && rec.company) return DB.find(p=>!p.name&&normCompany(p.company)===normCompany(rec.company))||DB.find(p=>normCompany(p.company)===normCompany(rec.company))||null;
+    // 같은 회사의 '이름 없는' 협력업체 플레이스홀더가 있으면 거기에 채워 넣기
+    if(rec.company){ const nc=normCompany(rec.company); const m=DB.find(p=>!p.name&&normCompany(p.company)===nc); if(m) return m; }
+    if(!rec.name && rec.company) return DB.find(p=>normCompany(p.company)===normCompany(rec.company))||null;
     return null;
   }
   function importRecords(recs){
@@ -1029,24 +1031,30 @@
   //  · 휴대폰이 같으면 이름 표기가 달라도 동일인 (박형일=박형일 사장님)
   //  · 같은 이름이면서 회사(표기차 흡수)/이메일/유선번호가 같으면 동일인
   //  (engineer@... 같은 공용 이메일 오인 병합 방지 위해 이메일은 이름이 같을 때만 적용)
+  const isVend=p=> (p.source&&/협력사|결제내역/.test(p.source)) || (p.tags&&p.tags.some(t=>/협력업체/.test(t))) || (p.projects&&p.projects.length>0);
   function dupGroups(){
-    const active=DB.filter(p=>p.status!=="expired" && p.name && norm(p.name));
+    const active=DB.filter(p=>p.status!=="expired" && (norm(p.name)||p.company));
     const parent=active.map((_,i)=>i);
     const find=i=>{ while(parent[i]!==i){ parent[i]=parent[parent[i]]; i=parent[i]; } return i; };
     const uni=(a,b)=>{ parent[find(a)]=find(b); };
     const seen={};
     active.forEach((p,i)=>{
-      const nm=norm(p.name), keys=[];
+      const nm=norm(p.name); if(!nm) return;
+      const keys=[];
       if(isMobile(p.phone)) keys.push("m:"+normPhone(p.phone));            // 휴대폰: 이름 무관
       const nc=normCompany(p.company); if(nc) keys.push("nc:"+nm+"|"+nc);  // 이름+회사(표기차 흡수)
       if(p.email) keys.push("ne:"+nm+"|"+norm(p.email));                   // 이름+이메일
       if(p.phone&&!isMobile(p.phone)&&normPhone(p.phone)) keys.push("nl:"+nm+"|"+normPhone(p.phone)); // 이름+유선
       keys.forEach(k=>{ if(seen[k]!==undefined) uni(i,seen[k]); else seen[k]=i; });
     });
+    // 협력업체: 같은 회사면 하나로(이름 없는 플레이스홀더/표기차 포함). 고객사(이름들이 제각각)에는 적용 안 함
+    const vendNc={}; active.forEach(p=>{ const nc=normCompany(p.company); if(nc&&isVend(p)) vendNc[nc]=true; });
+    const firstNc={};
+    active.forEach((p,i)=>{ const nc=normCompany(p.company); if(nc&&vendNc[nc]){ if(firstNc[nc]!==undefined) uni(i,firstNc[nc]); else firstNc[nc]=i; } });
     const comp={};
     active.forEach((p,i)=>{ const r=find(i); (comp[r]=comp[r]||[]).push(p); });
     return Object.values(comp).filter(g=>g.length>1)
-      .sort((a,b)=>(a[0].name+a[0].company).localeCompare(b[0].name+b[0].company,"ko"));
+      .sort((a,b)=>((a[0].name||a[0].company)+"").localeCompare((b[0].name||b[0].company)+"","ko"));
   }
   // 가장 정보가 많은 레코드 점수
   function completeness(p){
@@ -1061,7 +1069,7 @@
     return keep;
   }
   // ---- 충돌(값이 서로 다른 항목) 확인 후 필드별 선택 병합 ----
-  const MERGE_FIELDS=[["company","회사"],["name","이름"],["position","직책"],["dept","부서"],["phone","휴대폰"],["email","이메일"],["tel","회사전화"],["address","주소"],["category","카테고리"],["collab","협업 업무"],["note","비고"]];
+  const MERGE_FIELDS=[["company","회사"],["name","이름"],["position","직책"],["dept","부서"],["phone","휴대폰"],["email","이메일"],["tel","회사전화"],["address","주소"],["collab","협업 업무"],["note","비고"]];
   const distinctVals=(g,f)=>{ const s=[]; g.forEach(p=>{ const v=String(p[f]||"").trim(); if(v&&!s.includes(v)) s.push(v); }); return s; };
   const hasConflict=g=>MERGE_FIELDS.some(([f])=>distinctVals(g,f).length>1);
   const bestRecord=g=>g.slice().sort((a,b)=>completeness(b)-completeness(a))[0];
