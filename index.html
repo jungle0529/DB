@@ -233,6 +233,19 @@
   .js-table tr.clk{cursor:pointer;} .js-table tr.clk:hover{background:#f7f8fa;}
   .js-table td.neg{color:var(--danger);} .js-table td.pos{color:var(--ok);}
   .js-table tfoot td{font-weight:800;border-top:2px solid var(--line-strong);background:#fafbfc;}
+  .fin-bar{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+  .seg.fin-seg button{padding:9px 18px;font-size:14px;}
+  .gt{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;}
+  .gt th,.gt td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:center;}
+  .gt thead th{background:#fafbfc;color:var(--text-sub);font-size:12px;font-weight:700;position:sticky;top:0;z-index:1;}
+  .gt thead tr.grp th{background:#f3f4f7;}
+  .gt th.gp-inv{background:#fdeef0;color:#b5495a;} .gt th.gp-chk{background:#eaf6f4;color:#2a8a7e;} .gt th.gp-rep{background:#efeafc;color:#6b4bbd;}
+  .gt td.l,.gt th.l{text-align:left;}
+  .gt tbody tr:hover{background:#f7f8fa;}
+  .gt .code{color:var(--accent-press);font-weight:600;}
+  .gt .o{color:#1fa971;font-weight:800;} .gt .x{color:#d6dae1;}
+  .gt .pbar{display:inline-block;width:54px;height:7px;border-radius:4px;background:#eef0f3;overflow:hidden;vertical-align:middle;}
+  .gt .pbar>i{display:block;height:100%;background:#1fa971;}
   .gy-card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-sm);padding:14px 16px;margin-bottom:10px;}
   .gy-head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;}
   .gy-code{font-weight:700;background:#eef0f3;color:#566;padding:1px 7px;border-radius:6px;font-size:11.5px;}
@@ -269,8 +282,7 @@
       <button data-view="dashboard" class="active">대시보드</button>
       <button data-view="people">검색 · 목록</button>
       <button data-view="projects">협력 프로젝트</button>
-      <button data-view="jeongsan">정산</button>
-      <button data-view="gyeyak">계약 단계</button>
+      <button data-view="finance">정산·계약</button>
       <button data-view="add">데이터 추가</button>
       <button data-view="clean">데이터 정리</button>
     </nav>
@@ -347,6 +359,9 @@
 
   <!-- 정산 (매출·매입) -->
   <section class="view" id="view-jeongsan">
+    <div class="fin-bar">
+      <div class="seg fin-seg"><button data-fin="gyeyak">계약 단계</button><button data-fin="jeongsan">정산</button></div>
+    </div>
     <div class="page-head"><h1>정산 (매출·매입)</h1><p>선택 기간의 <b>매출 회수금액</b>과 <b>매입 지급비용</b>을 비교합니다. (실제 입·출금일 기준)</p></div>
     <div class="panel">
       <div class="js-controls">
@@ -372,18 +387,23 @@
 
   <!-- 계약 단계 체크 -->
   <section class="view" id="view-gyeyak">
-    <div class="page-head"><h1>계약 단계 체크</h1><p>프로젝트별 매출 단계(선금·중도·잔금) 진행 현황과 연결된 협력사 매입 단계를 함께 확인합니다.</p></div>
+    <div class="fin-bar">
+      <div class="seg fin-seg"><button data-fin="gyeyak">계약 단계</button><button data-fin="jeongsan">정산</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-left:auto"><span id="gyAsof" class="js-asof"></span><button class="btn sm" id="gyRefresh">새로고침</button></div>
+    </div>
+    <div class="page-head"><h1>계약 단계 체크</h1><p>프로젝트별 매출 단계 진행 현황 · 체크 전용</p></div>
     <div class="panel">
       <div class="js-controls">
-        <label class="js-f">검색 <input id="gyQuery" class="inp" placeholder="프로젝트·고객·코드·업체"></label>
-        <label class="js-f">대분류 <select id="gyCat" class="inp"></select></label>
+        <label class="js-f">검색 <input id="gyQuery" class="inp" placeholder="코드 · 프로젝트명 검색"></label>
+        <label class="js-f">연도 <select id="gyYear" class="inp"></select></label>
+        <label class="js-f">구분 <select id="gyCat" class="inp"></select></label>
         <label class="js-f">담당자 <select id="gyMgr" class="inp"></select></label>
-        <label class="js-f"><input type="checkbox" id="gyUnrecv"> 미회수 있는 계약만</label>
-        <label class="js-f"><input type="checkbox" id="gyHasBuy"> 매입 연결만</label>
+        <label class="js-f">진행상황 <select id="gyStatus" class="inp"></select></label>
+        <label class="js-f" style="margin-left:auto"><input type="checkbox" id="gyIncomplete"> 미완료만</label>
       </div>
       <div class="js-asof" id="gySummary"></div>
     </div>
-    <div id="gyList"></div>
+    <div class="panel" style="padding:0;overflow:auto"><div id="gyList"></div></div>
   </section>
 
   <!-- Add -->
@@ -668,16 +688,25 @@
   let toastT;
   function toast(msg){ const el=$("#toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),2200); }
 
+  let finMode=localStorage.getItem("customerDB.finMode")||"gyeyak";
   function go(view){
+    if(view==="finance"){
+      $$(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view==="finance"));
+      $$(".view").forEach(v=>v.classList.remove("active"));
+      $("#"+(finMode==="jeongsan"?"view-jeongsan":"view-gyeyak")).classList.add("active");
+      $$(".fin-seg button").forEach(b=>b.classList.toggle("active",b.dataset.fin===finMode));
+      window.scrollTo({top:0,behavior:"smooth"});
+      if(finMode==="jeongsan") renderJeongsan(); else renderGyeyak();
+      return;
+    }
     $$(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+view));
     window.scrollTo({top:0,behavior:"smooth"});
     if(view==="clean") renderCleanup();
     if(view==="dashboard") renderDashboard();
     if(view==="projects") renderProjects();
-    if(view==="jeongsan") renderJeongsan();
-    if(view==="gyeyak") renderGyeyak();
   }
+  document.addEventListener("click",e=>{ const t=e.target.closest("[data-fin]"); if(t){ finMode=t.dataset.fin; localStorage.setItem("customerDB.finMode",finMode); go("finance"); } });
   document.addEventListener("click",e=>{ const t=e.target.closest("[data-view]"); if(t) go(t.dataset.view); });
 
   function highlight(text,q){
@@ -1435,54 +1464,52 @@
     rows.push(["합계",months.reduce((a,m)=>a+sale[m],0),months.reduce((a,m)=>a+buy[m],0),""]);
     const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"정산"); XLSX.writeFile(wb,`정산_${jsFrom}_${jsTo}.xlsx`); };
 
-  /* ---------- 계약 단계 체크 ---------- */
+  /* ---------- 계약 단계 체크 (서류 체크 표) ---------- */
   const CONTRACTS=(window.CONTRACTS||[]).slice();
-  let gyQuery="",gyCat="",gyMgr="",gyUnrecv=false,gyHasBuy=false,gyReady=false;
-  const ST_SALE={"회수완료":["✓ 회수완료","#1fa971","#e7f6ef"],"발행":["발행·미회수","#e08a1e","#fcf2e2"],"미발행":["미발행","#9aa1ab","#f0f2f5"]};
-  const ST_BUY ={"지급완료":["✓ 지급완료","#1fa971","#e7f6ef"],"발행":["발행·미지급","#e08a1e","#fcf2e2"],"미발행":["미발행","#9aa1ab","#f0f2f5"]};
-  function stChip(stg,sale){ const m=(sale?ST_SALE:ST_BUY)[stg.st]||ST_SALE["미발행"];
-    const amt=sale?(stg.recvA||stg.issue):(stg.payA||stg.issue);
-    return `<span class="st-chip" style="background:${m[2]};color:${m[1]}">${stg.k} · ${m[0]}${amt?" "+won(amt):""}${sale&&stg.st==='발행'&&stg.exp?` · 예정 ${esc(stg.exp)}`:""}</span>`; }
-  function stMini(stg,sale){ const m=(sale?ST_SALE:ST_BUY)[stg.st]||ST_SALE["미발행"];
-    return `<span class="st-mini" style="background:${m[2]};color:${m[1]}" title="${stg.k} ${m[0]}">${stg.k[0]}</span>`; }
+  let gyQuery="",gyYear="",gyCat="",gyMgr="",gyStatus="",gyIncomplete=false,gyReady=false;
+  const ox=b=>b?'<span class="o">O</span>':'<span class="x">–</span>';
   function gyInit(){ if(gyReady)return; gyReady=true;
-    const cats=[...new Set(CONTRACTS.map(c=>c.cat).filter(Boolean))].sort();
-    const mgrs=[...new Set(CONTRACTS.map(c=>c.mgr).filter(Boolean))].sort();
-    $("#gyCat").innerHTML=`<option value="">전체</option>`+cats.map(c=>`<option>${esc(c)}</option>`).join("");
-    $("#gyMgr").innerHTML=`<option value="">전체</option>`+mgrs.map(c=>`<option>${esc(c)}</option>`).join("");
+    const opt=(arr)=>`<option value="">전체</option>`+[...new Set(arr.filter(Boolean))].sort().reverse().map(v=>`<option>${esc(v)}</option>`).join("");
+    $("#gyYear").innerHTML=opt(CONTRACTS.map(c=>c.year));
+    $("#gyCat").innerHTML=`<option value="">전체</option>`+[...new Set(CONTRACTS.map(c=>c.cat).filter(Boolean))].sort().map(v=>`<option>${esc(v)}</option>`).join("");
+    $("#gyMgr").innerHTML=`<option value="">전체</option>`+[...new Set(CONTRACTS.map(c=>c.mgr).filter(Boolean))].sort().map(v=>`<option>${esc(v)}</option>`).join("");
+    $("#gyStatus").innerHTML=`<option value="">전체</option>`+[...new Set(CONTRACTS.map(c=>c.status).filter(Boolean))].sort().map(v=>`<option>${esc(v)}</option>`).join("");
+    $("#gyAsof").textContent="갱신 "+(window.CONTRACTS_ASOF||"");
   }
+  const gyComplete=c=>c.clink&&c.inv["선금"]&&c.gumsu&&c.result;
   function renderGyeyak(){
     if(!CONTRACTS.length){ $("#gyList").innerHTML=`<div class="empty"><div class="em-ic">📋</div><h3>계약 데이터가 없습니다</h3></div>`; return; }
     gyInit();
     const q=norm(gyQuery);
     let list=CONTRACTS.filter(c=>{
+      if(gyYear&&c.year!==gyYear) return false;
       if(gyCat&&c.cat!==gyCat) return false;
       if(gyMgr&&c.mgr!==gyMgr) return false;
-      if(gyHasBuy&&!c.buys.length) return false;
-      if(gyUnrecv&&!(c.stages.some(s=>s.st==='발행')||c.unpaid>0)) return false;
-      if(q){ const hay=norm(c.name+c.customer+c.code+c.qcode+c.mgr+c.buys.map(b=>b.vendor).join("")); if(!hay.includes(q)) return false; }
+      if(gyStatus&&c.status!==gyStatus) return false;
+      if(gyIncomplete&&gyComplete(c)) return false;
+      if(q && !norm(c.code+c.name+c.customer).includes(q)) return false;
       return true;
-    });
-    list.sort((a,b)=>{ const au=(a.stages.some(s=>s.st==='발행')||a.unpaid>0)?1:0, bu=(b.stages.some(s=>s.st==='발행')||b.unpaid>0)?1:0;
-      if(au!==bu) return bu-au; const ab=a.buys.length?1:0, bb=b.buys.length?1:0; if(ab!==bb) return bb-ab; return a.code.localeCompare(b.code); });
-    const unrecvCnt=list.filter(c=>c.stages.some(s=>s.st==='발행')||c.unpaid>0).length;
-    const unrecvAmt=list.reduce((a,c)=>a+(c.unpaid||0),0);
-    $("#gySummary").innerHTML=`계약 ${list.length.toLocaleString()}건 · 미회수(발행·미수) ${unrecvCnt}건 · 미수채권 합 ${won(unrecvAmt)} · 매입연결 ${list.filter(c=>c.buys.length).length}건`;
-    $("#gyList").innerHTML=list.slice(0,250).map(c=>{
-      const sale=`<div class="gy-row"><span class="lbl">매출</span>${c.stages.map(s=>stChip(s,true)).join("")}</div>`;
-      const buys=c.buys.length?`<div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:8px">`+
-        c.buys.map(b=>`<div class="gy-buy"><span class="v">${esc(b.vendor)||"(업체)"}</span><span style="color:var(--text-mute)">${esc(b.kind||b.item||"")}</span>${b.stages.map(s=>stMini(s,false)).join("")}${b.total?`<span style="color:var(--text-mute)">총 ${won(b.total)}</span>`:""}${b.unpaid>0?`<span style="color:var(--danger)">미지급 ${won(b.unpaid)}</span>`:""}</div>`).join("")+`</div>`:"";
-      return `<div class="gy-card">
-        <div class="gy-head"><span class="gy-code">${esc(c.code)}</span><span class="gy-name">${esc(c.name)||"(프로젝트)"}</span>
-          <span class="gy-meta">${esc(c.customer)}${c.mgr?" · "+esc(c.mgr):""}${c.cat?" · "+esc(c.cat):""} · 총 ${won(c.total)}${c.unpaid>0?` · <b style="color:var(--danger)">미수 ${won(c.unpaid)}</b>`:""}</span></div>
-        ${sale}${buys}</div>`;
-    }).join("")+(list.length>250?`<div style="text-align:center;color:var(--text-mute);padding:16px">상위 250건 표시 중. 검색으로 좁혀보세요.</div>`:"");
+    }).sort((a,b)=>a.code.localeCompare(b.code));
+    $("#gySummary").textContent=`계약 ${list.length.toLocaleString()}건 · 계산서(선금) ${list.filter(c=>c.inv["선금"]).length} · 검수확인서 ${list.filter(c=>c.gumsu).length} · 결과보고서 ${list.filter(c=>c.result).length}`;
+    const head=`<thead>
+      <tr class="grp"><th class="l" rowspan="2">코드</th><th class="l" rowspan="2">프로젝트명</th><th rowspan="2">진행상황</th><th rowspan="2">담당자</th>
+        <th rowspan="2">계약<br>기안</th><th rowspan="2">계약<br>링크</th><th class="gp-inv" colspan="3">계산서</th><th class="gp-chk" rowspan="2">검수<br>확인서</th><th class="gp-rep" rowspan="2">결과<br>보고서</th><th rowspan="2">진척</th></tr>
+      <tr><th class="gp-inv">선금</th><th class="gp-inv">중도금</th><th class="gp-inv">잔금</th></tr></thead>`;
+    const body=list.slice(0,400).map(c=>`<tr>
+      <td class="code">${esc(c.code)}</td><td class="l">${esc(c.name)||"-"}</td><td>${esc(c.status)||"-"}</td><td>${esc(c.mgr)||""}</td>
+      <td>${c.gian?esc(c.gian):'<span class="x">–</span>'}</td><td>${ox(c.clink)}</td>
+      <td>${ox(c.inv["선금"])}</td><td>${ox(c.inv["중도금"])}</td><td>${ox(c.inv["잔금"])}</td>
+      <td>${ox(c.gumsu)}</td><td>${ox(c.result)}</td>
+      <td><span class="pbar"><i style="width:${c.prog}%"></i></span></td></tr>`).join("");
+    $("#gyList").innerHTML=`<table class="gt">${head}<tbody>${body}</tbody></table>`+(list.length>400?`<div style="text-align:center;color:var(--text-mute);padding:14px">상위 400건 표시 중. 검색·필터로 좁혀보세요.</div>`:"");
   }
   $("#gyQuery").addEventListener("input",e=>{gyQuery=e.target.value;clearTimeout(st);st=setTimeout(renderGyeyak,150);});
+  $("#gyYear").onchange=e=>{gyYear=e.target.value;renderGyeyak();};
   $("#gyCat").onchange=e=>{gyCat=e.target.value;renderGyeyak();};
   $("#gyMgr").onchange=e=>{gyMgr=e.target.value;renderGyeyak();};
-  $("#gyUnrecv").onchange=e=>{gyUnrecv=e.target.checked;renderGyeyak();};
-  $("#gyHasBuy").onchange=e=>{gyHasBuy=e.target.checked;renderGyeyak();};
+  $("#gyStatus").onchange=e=>{gyStatus=e.target.value;renderGyeyak();};
+  $("#gyIncomplete").onchange=e=>{gyIncomplete=e.target.checked;renderGyeyak();};
+  $("#gyRefresh").onclick=()=>{ renderGyeyak(); toast("새로고침했습니다."); };
 
   ["f-phone","f-tel","m-phone","m-tel"].forEach(id=>bindPhone($("#"+id)));
   document.addEventListener("input",e=>{ if(e.target&&e.target.matches&&e.target.matches('.proj-edit-row [data-k="amount"]')) e.target.value=fmtMoney(e.target.value); });
