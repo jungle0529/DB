@@ -1466,7 +1466,7 @@
 
   /* ---------- 계약 단계 체크 (서류 체크 표) ---------- */
   const CONTRACTS=(window.CONTRACTS||[]).slice();
-  let gyQuery="",gyYear="",gyCat="",gyMgr="",gyStatus="",gyIncomplete=false,gyReady=false;
+  let gyQuery="",gyYear="",gyCat="",gyMgr="",gyStatus="",gyIncomplete=false,gyReady=false,gyLimit=120;
   const ox=b=>b?'<span class="o">O</span>':'<span class="x">–</span>';
   function gyInit(){ if(gyReady)return; gyReady=true;
     const opt=(arr)=>`<option value="">전체</option>`+[...new Set(arr.filter(Boolean))].sort().reverse().map(v=>`<option>${esc(v)}</option>`).join("");
@@ -1495,20 +1495,24 @@
       <tr class="grp"><th class="l" rowspan="2">코드</th><th class="l" rowspan="2">프로젝트명</th><th rowspan="2">진행상황</th><th rowspan="2">담당자</th>
         <th rowspan="2">계약<br>기안</th><th rowspan="2">계약<br>링크</th><th class="gp-inv" colspan="3">계산서</th><th class="gp-chk" rowspan="2">검수<br>확인서</th><th class="gp-rep" rowspan="2">결과<br>보고서</th><th rowspan="2">진척</th></tr>
       <tr><th class="gp-inv">선금</th><th class="gp-inv">중도금</th><th class="gp-inv">잔금</th></tr></thead>`;
-    const body=list.slice(0,400).map(c=>`<tr>
+    const shown=list.slice(0,gyLimit);
+    const body=shown.map(c=>`<tr>
       <td class="code">${esc(c.code)}</td><td class="l">${esc(c.name)||"-"}</td><td>${esc(c.status)||"-"}</td><td>${esc(c.mgr)||""}</td>
       <td>${c.gian?esc(c.gian):'<span class="x">–</span>'}</td><td>${ox(c.clink)}</td>
       <td>${ox(c.inv["선금"])}</td><td>${ox(c.inv["중도금"])}</td><td>${ox(c.inv["잔금"])}</td>
       <td>${ox(c.gumsu)}</td><td>${ox(c.result)}</td>
       <td><span class="pbar"><i style="width:${c.prog}%"></i></span></td></tr>`).join("");
-    $("#gyList").innerHTML=`<table class="gt">${head}<tbody>${body}</tbody></table>`+(list.length>400?`<div style="text-align:center;color:var(--text-mute);padding:14px">상위 400건 표시 중. 검색·필터로 좁혀보세요.</div>`:"");
+    $("#gyList").innerHTML=`<table class="gt">${head}<tbody>${body}</tbody></table>`+
+      (list.length>shown.length?`<div style="text-align:center;padding:14px"><button class="btn sm" id="gyMore">더 보기 (${shown.length}/${list.length})</button></div>`:"");
+    const mb=$("#gyMore"); if(mb) mb.onclick=()=>{ gyLimit+=200; renderGyeyak(); };
   }
-  $("#gyQuery").addEventListener("input",e=>{gyQuery=e.target.value;clearTimeout(st);st=setTimeout(renderGyeyak,150);});
-  $("#gyYear").onchange=e=>{gyYear=e.target.value;renderGyeyak();};
-  $("#gyCat").onchange=e=>{gyCat=e.target.value;renderGyeyak();};
-  $("#gyMgr").onchange=e=>{gyMgr=e.target.value;renderGyeyak();};
-  $("#gyStatus").onchange=e=>{gyStatus=e.target.value;renderGyeyak();};
-  $("#gyIncomplete").onchange=e=>{gyIncomplete=e.target.checked;renderGyeyak();};
+  function gyReset(){ gyLimit=120; renderGyeyak(); }
+  $("#gyQuery").addEventListener("input",e=>{gyQuery=e.target.value;clearTimeout(st);st=setTimeout(gyReset,150);});
+  $("#gyYear").onchange=e=>{gyYear=e.target.value;gyReset();};
+  $("#gyCat").onchange=e=>{gyCat=e.target.value;gyReset();};
+  $("#gyMgr").onchange=e=>{gyMgr=e.target.value;gyReset();};
+  $("#gyStatus").onchange=e=>{gyStatus=e.target.value;gyReset();};
+  $("#gyIncomplete").onchange=e=>{gyIncomplete=e.target.checked;gyReset();};
   $("#gyRefresh").onclick=()=>{ renderGyeyak(); toast("새로고침했습니다."); };
 
   ["f-phone","f-tel","m-phone","m-tel"].forEach(id=>bindPhone($("#"+id)));
