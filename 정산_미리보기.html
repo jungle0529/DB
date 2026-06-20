@@ -1,0 +1,116 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>정산 미리보기</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+body{font-family:Pretendard,system-ui,sans-serif;background:#f6f7f9;color:#191c20;margin:0;padding:28px;font-size:14px}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:21px;margin:0 0 4px} .sub{color:#646b75;margin:0 0 22px;font-size:13.5px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.card{background:#fff;border:1px solid #e7e9ee;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.card .n{font-size:22px;font-weight:800;letter-spacing:-.5px} .card .l{color:#646b75;font-size:12.5px;margin-top:3px;font-weight:600}
+.panel{background:#fff;border:1px solid #e7e9ee;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.panel h2{font-size:15.5px;margin:0 0 14px}
+.legend{display:flex;gap:16px;font-size:12.5px;color:#646b75;margin-bottom:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:9px 12px;border-bottom:1px solid #e7e9ee;text-align:right;white-space:nowrap}
+th{background:#fafbfc;color:#646b75;font-size:12px} th:first-child,td:first-child{text-align:left}
+tfoot td{font-weight:800;border-top:2px solid #d6dae1;background:#fafbfc}
+.note{background:#eaf0ff;border:1px solid #cfdcff;color:#284c9e;border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.6}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.chip{border:1px solid #d6dae1;background:#fff;color:#646b75;padding:6px 13px;border-radius:999px;font-size:12.5px;font-weight:600}
+.chip.on{background:#2f6bff;border-color:#2f6bff;color:#fff}
+</style></head><body><div class="wrap">
+<h1>정산 (매출·매입) — 미리보기</h1>
+<p class="sub">선택 기간의 <b>매출 회수금액</b>과 <b>매입 지급비용</b>을 비교합니다. (실제 입·출금일 기준 · 최근 12개월 예시)</p>
+<div class="chips"><span class="chip on">최근 12개월</span><span class="chip">올해</span><span class="chip">작년</span><span class="chip">전체</span><span class="chip">기간 직접지정</span><span class="chip">대분류▾</span><span class="chip">담당자▾</span><span class="chip">거래처검색</span></div>
+<div class="cards">
+ <div class="card"><div class="n" style="color:#2f6bff">₩11,024,898,037</div><div class="l">매출 회수 합</div></div>
+ <div class="card"><div class="n" style="color:#e08a1e">₩3,928,845,760</div><div class="l">매입 지급 합</div></div>
+ <div class="card"><div class="n" style="color:#1fa971">₩7,096,052,277</div><div class="l">순액 (매출−매입)</div></div>
+ <div class="card"><div class="n">2025-07 ~ 2026-06</div><div class="l">기간 (12개월)</div></div>
+</div>
+<div class="panel"><h2>월별 추이 (매출 vs 매입)</h2>
+ <div class="legend"><span><i style="background:#2f6bff"></i>매출 회수</span><span><i style="background:#e08a1e"></i>매입 지급</span></div>
+ <div style="display:flex;align-items:flex-end;gap:10px;height:200px;overflow-x:auto;padding-top:10px"><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩1,321,364,000" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:82px"></div>
+   <div title="매입 ₩101,055,000" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:6px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">25-07</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩619,308,000" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:39px"></div>
+   <div title="매입 ₩359,575,500" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:22px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">25-08</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩636,850,000" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:40px"></div>
+   <div title="매입 ₩216,510,000" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:13px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">25-09</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩407,700,000" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:25px"></div>
+   <div title="매입 ₩436,275,091" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:27px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">25-10</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩1,751,998,832" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:109px"></div>
+   <div title="매입 ₩457,674,519" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:28px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">25-11</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩2,732,345,918" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:170px"></div>
+   <div title="매입 ₩2,150,040,650" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:134px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">25-12</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩271,150,000" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:17px"></div>
+   <div title="매입 ₩115,900,000" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:7px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">26-01</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩432,340,909" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:27px"></div>
+   <div title="매입 ₩0" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:0px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">26-02</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩1,461,176,280" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:91px"></div>
+   <div title="매입 ₩19,451,000" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:1px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">26-03</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩692,148,685" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:43px"></div>
+   <div title="매입 ₩27,286,500" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:2px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">26-04</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩654,909,273" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:41px"></div>
+   <div title="매입 ₩0" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:0px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">26-05</div></div><div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">
+  <div style="display:flex;align-items:flex-end;gap:3px;height:170px">
+   <div title="매출 ₩43,606,140" style="width:16px;border-radius:3px 3px 0 0;background:#2f6bff;height:3px"></div>
+   <div title="매입 ₩45,077,500" style="width:16px;border-radius:3px 3px 0 0;background:#e08a1e;height:3px"></div>
+  </div><div style="font-size:11px;color:#9aa1ab">26-06</div></div></div>
+</div>
+<div class="panel"><h2>월별 표 (행 클릭 시 그 달 거래 상세 — 실제 화면)</h2>
+ <table><thead><tr><th>월</th><th>매출 회수</th><th>매입 지급</th><th>순액</th><th>누계</th></tr></thead>
+ <tbody><tr><td style="text-align:left">2025-07</td><td>₩1,321,364,000</td><td>₩101,055,000</td>
+      <td style="color:#1fa971">₩1,220,309,000</td>
+      <td style="color:#1fa971">₩1,220,309,000</td></tr><tr><td style="text-align:left">2025-08</td><td>₩619,308,000</td><td>₩359,575,500</td>
+      <td style="color:#1fa971">₩259,732,500</td>
+      <td style="color:#1fa971">₩1,480,041,500</td></tr><tr><td style="text-align:left">2025-09</td><td>₩636,850,000</td><td>₩216,510,000</td>
+      <td style="color:#1fa971">₩420,340,000</td>
+      <td style="color:#1fa971">₩1,900,381,500</td></tr><tr><td style="text-align:left">2025-10</td><td>₩407,700,000</td><td>₩436,275,091</td>
+      <td style="color:#e0463e">₩-28,575,091</td>
+      <td style="color:#1fa971">₩1,871,806,409</td></tr><tr><td style="text-align:left">2025-11</td><td>₩1,751,998,832</td><td>₩457,674,519</td>
+      <td style="color:#1fa971">₩1,294,324,313</td>
+      <td style="color:#1fa971">₩3,166,130,722</td></tr><tr><td style="text-align:left">2025-12</td><td>₩2,732,345,918</td><td>₩2,150,040,650</td>
+      <td style="color:#1fa971">₩582,305,268</td>
+      <td style="color:#1fa971">₩3,748,435,990</td></tr><tr><td style="text-align:left">2026-01</td><td>₩271,150,000</td><td>₩115,900,000</td>
+      <td style="color:#1fa971">₩155,250,000</td>
+      <td style="color:#1fa971">₩3,903,685,990</td></tr><tr><td style="text-align:left">2026-02</td><td>₩432,340,909</td><td>₩0</td>
+      <td style="color:#1fa971">₩432,340,909</td>
+      <td style="color:#1fa971">₩4,336,026,899</td></tr><tr><td style="text-align:left">2026-03</td><td>₩1,461,176,280</td><td>₩19,451,000</td>
+      <td style="color:#1fa971">₩1,441,725,280</td>
+      <td style="color:#1fa971">₩5,777,752,179</td></tr><tr><td style="text-align:left">2026-04</td><td>₩692,148,685</td><td>₩27,286,500</td>
+      <td style="color:#1fa971">₩664,862,185</td>
+      <td style="color:#1fa971">₩6,442,614,364</td></tr><tr><td style="text-align:left">2026-05</td><td>₩654,909,273</td><td>₩0</td>
+      <td style="color:#1fa971">₩654,909,273</td>
+      <td style="color:#1fa971">₩7,097,523,637</td></tr><tr><td style="text-align:left">2026-06</td><td>₩43,606,140</td><td>₩45,077,500</td>
+      <td style="color:#e0463e">₩-1,471,360</td>
+      <td style="color:#1fa971">₩7,096,052,277</td></tr></tbody>
+ <tfoot><tr><td>합계(12개월)</td><td>₩11,024,898,037</td><td>₩3,928,845,760</td><td style="color:#1fa971">₩7,096,052,277</td><td></td></tr></tfoot></table>
+</div>
+<div class="note"><b>실제 ‘정산’ 탭</b>에는 위 미리보기에 더해 — 기간 프리셋/직접지정, 대분류·담당자·거래처 필터, 막대 위 금액 툴팁, <b>월 클릭 시 그 달 거래 상세</b>(구분·거래처·프로젝트·단계·일자·금액), 엑셀 내보내기가 모두 동작합니다. (전체 누계: 매출 ₩43,010,679,541 / 매입 ₩10,441,401,113)</div>
+</div></body></html>
