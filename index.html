@@ -212,6 +212,27 @@
   .stat .n{font-size:24px;font-weight:800;letter-spacing:-.5px;}
   .stat .l{color:var(--text-sub);font-size:12.5px;margin-top:2px;font-weight:600;}
   .stat.warn .n{color:var(--warn);} .stat.accent .n{color:var(--accent);}
+  .js-controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;}
+  .js-presets{display:flex;gap:6px;}
+  .js-f{font-size:12.5px;color:var(--text-sub);font-weight:600;display:inline-flex;align-items:center;gap:6px;}
+  .js-f .inp{width:auto;padding:7px 10px;}
+  .js-asof{color:var(--text-mute);font-size:12px;margin-top:10px;}
+  .js-chart{display:flex;align-items:flex-end;gap:10px;height:200px;padding:10px 4px 0;overflow-x:auto;}
+  .js-mcol{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:46px;}
+  .js-bars{display:flex;align-items:flex-end;gap:3px;height:160px;}
+  .js-bar{width:14px;border-radius:3px 3px 0 0;}
+  .js-bar.s{background:var(--accent);}
+  .js-bar.b{background:var(--warn);}
+  .js-mlbl{font-size:10.5px;color:var(--text-mute);transform:rotate(-30deg);white-space:nowrap;}
+  .js-legend{display:flex;gap:14px;font-size:12px;color:var(--text-sub);margin-bottom:6px;}
+  .js-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px;}
+  .js-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .js-table th,.js-table td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;}
+  .js-table th{background:#fafbfc;color:var(--text-sub);font-size:12px;font-weight:700;text-align:right;position:sticky;top:0;}
+  .js-table th:first-child,.js-table td:first-child{text-align:left;}
+  .js-table tr.clk{cursor:pointer;} .js-table tr.clk:hover{background:#f7f8fa;}
+  .js-table td.neg{color:var(--danger);} .js-table td.pos{color:var(--ok);}
+  .js-table tfoot td{font-weight:800;border-top:2px solid var(--line-strong);background:#fafbfc;}
   .src-stats{display:flex;flex-wrap:wrap;gap:8px;}
   .src-stat{background:#f7f8fa;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:13px;}
   .src-stat b{font-size:16px;margin-right:5px;}
@@ -237,6 +258,7 @@
       <button data-view="dashboard" class="active">대시보드</button>
       <button data-view="people">검색 · 목록</button>
       <button data-view="projects">협력 프로젝트</button>
+      <button data-view="jeongsan">정산</button>
       <button data-view="add">데이터 추가</button>
       <button data-view="clean">데이터 정리</button>
     </nav>
@@ -309,6 +331,31 @@
       </div>
     </div>
     <div id="projList"></div>
+  </section>
+
+  <!-- 정산 (매출·매입) -->
+  <section class="view" id="view-jeongsan">
+    <div class="page-head"><h1>정산 (매출·매입)</h1><p>선택 기간의 <b>매출 회수금액</b>과 <b>매입 지급비용</b>을 비교합니다. (실제 입·출금일 기준)</p></div>
+    <div class="panel">
+      <div class="js-controls">
+        <div class="js-presets" id="jsPresets">
+          <button class="chip" data-pre="12">최근 12개월</button>
+          <button class="chip" data-pre="ytd">올해</button>
+          <button class="chip" data-pre="ly">작년</button>
+          <button class="chip" data-pre="all">전체</button>
+        </div>
+        <label class="js-f">기간 <input type="month" id="jsFrom" class="inp"> ~ <input type="month" id="jsTo" class="inp"></label>
+        <label class="js-f">대분류 <select id="jsCat" class="inp"></select></label>
+        <label class="js-f">담당자 <select id="jsMgr" class="inp"></select></label>
+        <label class="js-f">거래처 <input id="jsCompany" class="inp" placeholder="회사명 검색"></label>
+        <button class="btn sm" id="jsExport" style="margin-left:auto">엑셀 내보내기</button>
+      </div>
+      <div class="js-asof" id="jsAsof"></div>
+    </div>
+    <div class="stats" id="jsSummary"></div>
+    <div class="panel"><h2>월별 추이 (매출 vs 매입)</h2><div id="jsChart" class="js-chart"></div></div>
+    <div class="panel"><h2>월별 표</h2><div id="jsTable"></div></div>
+    <div class="panel" id="jsDetailPanel" style="display:none"><h2 id="jsDetailTitle">거래 상세</h2><div id="jsDetail"></div></div>
   </section>
 
   <!-- Add -->
@@ -489,6 +536,7 @@
 <div id="toast"></div>
 
 <script src="seed-data.js"></script>
+<script src="jeongsan-data.js"></script>
 <script>
 (function(){
   "use strict";
@@ -598,6 +646,7 @@
     if(view==="clean") renderCleanup();
     if(view==="dashboard") renderDashboard();
     if(view==="projects") renderProjects();
+    if(view==="jeongsan") renderJeongsan();
   }
   document.addEventListener("click",e=>{ const t=e.target.closest("[data-view]"); if(t) go(t.dataset.view); });
 
@@ -1295,6 +1344,66 @@
     }catch(e){ setSyncStatus("❌ "+e.message); toast("연결 실패"); }
   };
   $("#syncNowBtn").onclick=()=>{ syncCfg.url=$("#syncUrl").value.trim(); syncCfg.auto=$("#syncAuto").checked; saveSyncCfg(syncCfg); syncNow(); };
+
+  /* ---------- 정산 (매출·매입) ---------- */
+  const LEDGER=(window.LEDGER||[]).slice();
+  let jsFrom="",jsTo="",jsCat="",jsMgr="",jsCompany="",jsReady=false;
+  const won=n=>"₩"+Math.round(n||0).toLocaleString("en-US");
+  function monthsBetween(a,b){ const out=[]; if(!a||!b)return out; let[y,m]=a.split("-").map(Number); const[ey,em]=b.split("-").map(Number); let g=0; while((y<ey||(y===ey&&m<=em))&&g++<600){ out.push(y+"-"+String(m).padStart(2,"0")); m++; if(m>12){m=1;y++;} } return out; }
+  function jsRange(){ const yms=LEDGER.map(t=>t.ym).filter(Boolean).sort(); return [yms[0]||"",yms[yms.length-1]||""]; }
+  function jsInit(){
+    if(jsReady) return; jsReady=true;
+    const [mn,mx]=jsRange(); jsTo=mx; const arr=monthsBetween(mn,mx); jsFrom=arr.length>12?arr[arr.length-12]:(mn||mx);
+    const cats=[...new Set(LEDGER.map(t=>t.category).filter(Boolean))].sort();
+    const mgrs=[...new Set(LEDGER.map(t=>t.manager).filter(Boolean))].sort();
+    $("#jsCat").innerHTML=`<option value="">전체</option>`+cats.map(c=>`<option>${esc(c)}</option>`).join("");
+    $("#jsMgr").innerHTML=`<option value="">전체</option>`+mgrs.map(c=>`<option>${esc(c)}</option>`).join("");
+    $("#jsAsof").textContent="기준: 마스터 시트 스냅샷"+(window.LEDGER_ASOF?` (${window.LEDGER_ASOF})`:"")+` · 매출 ${LEDGER.filter(t=>t.type==='매출').length}건 / 매입 ${LEDGER.filter(t=>t.type==='매입').length}건`;
+  }
+  function jsFiltered(){ const cq=norm(jsCompany);
+    return LEDGER.filter(t=> t.ym>=jsFrom && t.ym<=jsTo && (!jsCat||t.category===jsCat) && (!jsMgr||t.manager===jsMgr) && (!cq||norm(t.company).includes(cq)) );
+  }
+  function renderJeongsan(){
+    if(!LEDGER.length){ $("#jsTable").innerHTML=`<div class="empty"><div class="em-ic">📊</div><h3>정산 데이터가 없습니다</h3></div>`; return; }
+    jsInit();
+    $("#jsFrom").value=jsFrom; $("#jsTo").value=jsTo; $("#jsCat").value=jsCat; $("#jsMgr").value=jsMgr;
+    const list=jsFiltered(), months=monthsBetween(jsFrom,jsTo), sale={},buy={};
+    months.forEach(m=>{sale[m]=0;buy[m]=0;});
+    list.forEach(t=>{ if(t.ym in sale){ if(t.type==='매출')sale[t.ym]+=t.amount; else buy[t.ym]+=t.amount; } });
+    const totS=months.reduce((a,m)=>a+sale[m],0), totB=months.reduce((a,m)=>a+buy[m],0);
+    $("#jsSummary").innerHTML=`${stat(won(totS),"매출 회수 합","accent")}${stat(won(totB),"매입 지급 합","warn")}${stat(won(totS-totB),"순액 (매출−매입)",totS-totB>=0?"":"warn")}${stat(months.length+"개월",jsFrom+" ~ "+jsTo,"")}`;
+    const max=Math.max(1,...months.map(m=>Math.max(sale[m],buy[m])));
+    $("#jsChart").innerHTML=months.map(m=>`<div class="js-mcol"><div class="js-bars"><div class="js-bar s" style="height:${Math.round(sale[m]/max*160)}px" title="${m} 매출 ${won(sale[m])}"></div><div class="js-bar b" style="height:${Math.round(buy[m]/max*160)}px" title="${m} 매입 ${won(buy[m])}"></div></div><div class="js-mlbl">${m.slice(2)}</div></div>`).join("");
+    let cum=0;
+    const rows=months.map(m=>{ const net=sale[m]-buy[m]; cum+=net; return `<tr class="clk" data-m="${m}"><td>${m}</td><td>${won(sale[m])}</td><td>${won(buy[m])}</td><td class="${net<0?'neg':'pos'}">${won(net)}</td><td class="${cum<0?'neg':'pos'}">${won(cum)}</td></tr>`; }).join("");
+    $("#jsTable").innerHTML=`<div class="js-legend"><span><i style="background:var(--accent)"></i>매출 회수</span><span><i style="background:var(--warn)"></i>매입 지급</span><span style="color:var(--text-mute)">행을 누르면 그 달 거래 상세</span></div>
+      <div style="overflow-x:auto"><table class="js-table"><thead><tr><th>월</th><th>매출 회수</th><th>매입 지급</th><th>순액</th><th>누계</th></tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr><td>합계</td><td>${won(totS)}</td><td>${won(totB)}</td><td class="${totS-totB<0?'neg':'pos'}">${won(totS-totB)}</td><td></td></tr></tfoot></table></div>`;
+    $$("#jsTable tr.clk").forEach(tr=>tr.onclick=()=>jsDetail(tr.dataset.m));
+    $("#jsDetailPanel").style.display="none";
+  }
+  function jsDetail(m){
+    const list=jsFiltered().filter(t=>t.ym===m).sort((a,b)=>a.type.localeCompare(b.type)||b.amount-a.amount);
+    $("#jsDetailTitle").textContent=m+" 거래 상세 ("+list.length+"건)";
+    $("#jsDetail").innerHTML=`<div style="overflow-x:auto"><table class="js-table"><thead><tr><th>구분</th><th>거래처</th><th>프로젝트</th><th>단계</th><th>일자</th><th>금액</th></tr></thead><tbody>${
+      list.map(t=>`<tr><td style="text-align:left;font-weight:700;color:${t.type==='매출'?'var(--accent-press)':'var(--warn)'}">${t.type}</td><td style="text-align:left">${esc(t.company)}</td><td style="text-align:left">${esc(t.project)}</td><td style="text-align:left">${esc(t.stage)}</td><td>${esc(t.date)}</td><td>${won(t.amount)}</td></tr>`).join("")
+    }</tbody></table></div>`;
+    const dp=$("#jsDetailPanel"); dp.style.display="block"; if(dp.scrollIntoView) dp.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+  $$("#jsPresets .chip").forEach(b=>b.onclick=()=>{ jsInit(); const [mn,mx]=jsRange(),pre=b.dataset.pre;
+    if(pre==="all"){jsFrom=mn;jsTo=mx;} else if(pre==="ytd"){jsFrom=mx.slice(0,4)+"-01";jsTo=mx;}
+    else if(pre==="ly"){const y=+mx.slice(0,4)-1;jsFrom=y+"-01";jsTo=y+"-12";}
+    else{const arr=monthsBetween(mn,mx);jsFrom=arr.length>12?arr[arr.length-12]:mn;jsTo=mx;}
+    renderJeongsan(); });
+  $("#jsFrom").onchange=e=>{jsFrom=e.target.value;renderJeongsan();};
+  $("#jsTo").onchange=e=>{jsTo=e.target.value;renderJeongsan();};
+  $("#jsCat").onchange=e=>{jsCat=e.target.value;renderJeongsan();};
+  $("#jsMgr").onchange=e=>{jsMgr=e.target.value;renderJeongsan();};
+  $("#jsCompany").addEventListener("input",e=>{jsCompany=e.target.value;clearTimeout(st);st=setTimeout(renderJeongsan,150);});
+  $("#jsExport").onclick=()=>{ const months=monthsBetween(jsFrom,jsTo),list=jsFiltered(),sale={},buy={}; months.forEach(m=>{sale[m]=0;buy[m]=0;}); list.forEach(t=>{if(t.ym in sale){if(t.type==='매출')sale[t.ym]+=t.amount;else buy[t.ym]+=t.amount;}});
+    const rows=[["월","매출 회수","매입 지급","순액"]]; months.forEach(m=>rows.push([m,sale[m],buy[m],sale[m]-buy[m]]));
+    rows.push(["합계",months.reduce((a,m)=>a+sale[m],0),months.reduce((a,m)=>a+buy[m],0),""]);
+    const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"정산"); XLSX.writeFile(wb,`정산_${jsFrom}_${jsTo}.xlsx`); };
 
   ["f-phone","f-tel","m-phone","m-tel"].forEach(id=>bindPhone($("#"+id)));
   document.addEventListener("input",e=>{ if(e.target&&e.target.matches&&e.target.matches('.proj-edit-row [data-k="amount"]')) e.target.value=fmtMoney(e.target.value); });
