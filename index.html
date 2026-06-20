@@ -233,6 +233,17 @@
   .js-table tr.clk{cursor:pointer;} .js-table tr.clk:hover{background:#f7f8fa;}
   .js-table td.neg{color:var(--danger);} .js-table td.pos{color:var(--ok);}
   .js-table tfoot td{font-weight:800;border-top:2px solid var(--line-strong);background:#fafbfc;}
+  .gy-card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-sm);padding:14px 16px;margin-bottom:10px;}
+  .gy-head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;}
+  .gy-code{font-weight:700;background:#eef0f3;color:#566;padding:1px 7px;border-radius:6px;font-size:11.5px;}
+  .gy-name{font-weight:700;font-size:14.5px;}
+  .gy-meta{color:var(--text-sub);font-size:12.5px;}
+  .gy-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:9px;}
+  .gy-row .lbl{font-size:11px;color:var(--text-mute);font-weight:700;flex:0 0 36px;}
+  .st-chip{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:7px;white-space:nowrap;}
+  .gy-buy{font-size:12px;color:var(--text-sub);margin-top:5px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+  .gy-buy .v{font-weight:700;color:var(--text);flex:0 0 auto;}
+  .st-mini{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:5px;}
   .src-stats{display:flex;flex-wrap:wrap;gap:8px;}
   .src-stat{background:#f7f8fa;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:13px;}
   .src-stat b{font-size:16px;margin-right:5px;}
@@ -259,6 +270,7 @@
       <button data-view="people">검색 · 목록</button>
       <button data-view="projects">협력 프로젝트</button>
       <button data-view="jeongsan">정산</button>
+      <button data-view="gyeyak">계약 단계</button>
       <button data-view="add">데이터 추가</button>
       <button data-view="clean">데이터 정리</button>
     </nav>
@@ -356,6 +368,22 @@
     <div class="panel"><h2>월별 추이 (매출 vs 매입)</h2><div id="jsChart" class="js-chart"></div></div>
     <div class="panel"><h2>월별 표</h2><div id="jsTable"></div></div>
     <div class="panel" id="jsDetailPanel" style="display:none"><h2 id="jsDetailTitle">거래 상세</h2><div id="jsDetail"></div></div>
+  </section>
+
+  <!-- 계약 단계 체크 -->
+  <section class="view" id="view-gyeyak">
+    <div class="page-head"><h1>계약 단계 체크</h1><p>프로젝트별 매출 단계(선금·중도·잔금) 진행 현황과 연결된 협력사 매입 단계를 함께 확인합니다.</p></div>
+    <div class="panel">
+      <div class="js-controls">
+        <label class="js-f">검색 <input id="gyQuery" class="inp" placeholder="프로젝트·고객·코드·업체"></label>
+        <label class="js-f">대분류 <select id="gyCat" class="inp"></select></label>
+        <label class="js-f">담당자 <select id="gyMgr" class="inp"></select></label>
+        <label class="js-f"><input type="checkbox" id="gyUnrecv"> 미회수 있는 계약만</label>
+        <label class="js-f"><input type="checkbox" id="gyHasBuy"> 매입 연결만</label>
+      </div>
+      <div class="js-asof" id="gySummary"></div>
+    </div>
+    <div id="gyList"></div>
   </section>
 
   <!-- Add -->
@@ -537,6 +565,7 @@
 
 <script src="seed-data.js"></script>
 <script src="jeongsan-data.js"></script>
+<script src="gyeyak-data.js"></script>
 <script>
 (function(){
   "use strict";
@@ -647,6 +676,7 @@
     if(view==="dashboard") renderDashboard();
     if(view==="projects") renderProjects();
     if(view==="jeongsan") renderJeongsan();
+    if(view==="gyeyak") renderGyeyak();
   }
   document.addEventListener("click",e=>{ const t=e.target.closest("[data-view]"); if(t) go(t.dataset.view); });
 
@@ -1404,6 +1434,55 @@
     const rows=[["월","매출 회수","매입 지급","순액"]]; months.forEach(m=>rows.push([m,sale[m],buy[m],sale[m]-buy[m]]));
     rows.push(["합계",months.reduce((a,m)=>a+sale[m],0),months.reduce((a,m)=>a+buy[m],0),""]);
     const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"정산"); XLSX.writeFile(wb,`정산_${jsFrom}_${jsTo}.xlsx`); };
+
+  /* ---------- 계약 단계 체크 ---------- */
+  const CONTRACTS=(window.CONTRACTS||[]).slice();
+  let gyQuery="",gyCat="",gyMgr="",gyUnrecv=false,gyHasBuy=false,gyReady=false;
+  const ST_SALE={"회수완료":["✓ 회수완료","#1fa971","#e7f6ef"],"발행":["발행·미회수","#e08a1e","#fcf2e2"],"미발행":["미발행","#9aa1ab","#f0f2f5"]};
+  const ST_BUY ={"지급완료":["✓ 지급완료","#1fa971","#e7f6ef"],"발행":["발행·미지급","#e08a1e","#fcf2e2"],"미발행":["미발행","#9aa1ab","#f0f2f5"]};
+  function stChip(stg,sale){ const m=(sale?ST_SALE:ST_BUY)[stg.st]||ST_SALE["미발행"];
+    const amt=sale?(stg.recvA||stg.issue):(stg.payA||stg.issue);
+    return `<span class="st-chip" style="background:${m[2]};color:${m[1]}">${stg.k} · ${m[0]}${amt?" "+won(amt):""}${sale&&stg.st==='발행'&&stg.exp?` · 예정 ${esc(stg.exp)}`:""}</span>`; }
+  function stMini(stg,sale){ const m=(sale?ST_SALE:ST_BUY)[stg.st]||ST_SALE["미발행"];
+    return `<span class="st-mini" style="background:${m[2]};color:${m[1]}" title="${stg.k} ${m[0]}">${stg.k[0]}</span>`; }
+  function gyInit(){ if(gyReady)return; gyReady=true;
+    const cats=[...new Set(CONTRACTS.map(c=>c.cat).filter(Boolean))].sort();
+    const mgrs=[...new Set(CONTRACTS.map(c=>c.mgr).filter(Boolean))].sort();
+    $("#gyCat").innerHTML=`<option value="">전체</option>`+cats.map(c=>`<option>${esc(c)}</option>`).join("");
+    $("#gyMgr").innerHTML=`<option value="">전체</option>`+mgrs.map(c=>`<option>${esc(c)}</option>`).join("");
+  }
+  function renderGyeyak(){
+    if(!CONTRACTS.length){ $("#gyList").innerHTML=`<div class="empty"><div class="em-ic">📋</div><h3>계약 데이터가 없습니다</h3></div>`; return; }
+    gyInit();
+    const q=norm(gyQuery);
+    let list=CONTRACTS.filter(c=>{
+      if(gyCat&&c.cat!==gyCat) return false;
+      if(gyMgr&&c.mgr!==gyMgr) return false;
+      if(gyHasBuy&&!c.buys.length) return false;
+      if(gyUnrecv&&!(c.stages.some(s=>s.st==='발행')||c.unpaid>0)) return false;
+      if(q){ const hay=norm(c.name+c.customer+c.code+c.qcode+c.mgr+c.buys.map(b=>b.vendor).join("")); if(!hay.includes(q)) return false; }
+      return true;
+    });
+    list.sort((a,b)=>{ const au=(a.stages.some(s=>s.st==='발행')||a.unpaid>0)?1:0, bu=(b.stages.some(s=>s.st==='발행')||b.unpaid>0)?1:0;
+      if(au!==bu) return bu-au; const ab=a.buys.length?1:0, bb=b.buys.length?1:0; if(ab!==bb) return bb-ab; return a.code.localeCompare(b.code); });
+    const unrecvCnt=list.filter(c=>c.stages.some(s=>s.st==='발행')||c.unpaid>0).length;
+    const unrecvAmt=list.reduce((a,c)=>a+(c.unpaid||0),0);
+    $("#gySummary").innerHTML=`계약 ${list.length.toLocaleString()}건 · 미회수(발행·미수) ${unrecvCnt}건 · 미수채권 합 ${won(unrecvAmt)} · 매입연결 ${list.filter(c=>c.buys.length).length}건`;
+    $("#gyList").innerHTML=list.slice(0,250).map(c=>{
+      const sale=`<div class="gy-row"><span class="lbl">매출</span>${c.stages.map(s=>stChip(s,true)).join("")}</div>`;
+      const buys=c.buys.length?`<div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:8px">`+
+        c.buys.map(b=>`<div class="gy-buy"><span class="v">${esc(b.vendor)||"(업체)"}</span><span style="color:var(--text-mute)">${esc(b.kind||b.item||"")}</span>${b.stages.map(s=>stMini(s,false)).join("")}${b.total?`<span style="color:var(--text-mute)">총 ${won(b.total)}</span>`:""}${b.unpaid>0?`<span style="color:var(--danger)">미지급 ${won(b.unpaid)}</span>`:""}</div>`).join("")+`</div>`:"";
+      return `<div class="gy-card">
+        <div class="gy-head"><span class="gy-code">${esc(c.code)}</span><span class="gy-name">${esc(c.name)||"(프로젝트)"}</span>
+          <span class="gy-meta">${esc(c.customer)}${c.mgr?" · "+esc(c.mgr):""}${c.cat?" · "+esc(c.cat):""} · 총 ${won(c.total)}${c.unpaid>0?` · <b style="color:var(--danger)">미수 ${won(c.unpaid)}</b>`:""}</span></div>
+        ${sale}${buys}</div>`;
+    }).join("")+(list.length>250?`<div style="text-align:center;color:var(--text-mute);padding:16px">상위 250건 표시 중. 검색으로 좁혀보세요.</div>`:"");
+  }
+  $("#gyQuery").addEventListener("input",e=>{gyQuery=e.target.value;clearTimeout(st);st=setTimeout(renderGyeyak,150);});
+  $("#gyCat").onchange=e=>{gyCat=e.target.value;renderGyeyak();};
+  $("#gyMgr").onchange=e=>{gyMgr=e.target.value;renderGyeyak();};
+  $("#gyUnrecv").onchange=e=>{gyUnrecv=e.target.checked;renderGyeyak();};
+  $("#gyHasBuy").onchange=e=>{gyHasBuy=e.target.checked;renderGyeyak();};
 
   ["f-phone","f-tel","m-phone","m-tel"].forEach(id=>bindPhone($("#"+id)));
   document.addEventListener("input",e=>{ if(e.target&&e.target.matches&&e.target.matches('.proj-edit-row [data-k="amount"]')) e.target.value=fmtMoney(e.target.value); });
