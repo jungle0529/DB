@@ -763,9 +763,11 @@
   function renderCatFilters(){
     const cnt={}; DB.forEach(p=>{ if(p.status==="expired")return; cnt[p.category]=(cnt[p.category]||0)+1; });
     const box=$("#catFilters");
+    const customCats=Object.keys(cnt).filter(c=>c&&!CATS.includes(c)).sort((a,b)=>cnt[b]-cnt[a]);
+    const chip=s=>`<button class="chip src ${catFilter===s?"active":""}" data-cat="${esc(s)}">${esc(s)} ${cnt[s]||0}</button>`;
     box.innerHTML=`<span class="flabel">카테고리</span>`+
       `<button class="chip src ${catFilter===""?"active":""}" data-cat="">전체</button>`+
-      CATS.map(s=>`<button class="chip src ${catFilter===s?"active":""}" data-cat="${esc(s)}">${esc(s)} ${cnt[s]||0}</button>`).join("");
+      CATS.map(chip).join("")+customCats.map(chip).join("");
     $$(".chip.src",box).forEach(c=>c.onclick=()=>{ catFilter=c.dataset.cat; projectFilter=""; renderCatFilters(); renderProjBanner(); renderPeople(); });
     // 출처(source) datalist for forms
     const srcs=[...new Set(DB.flatMap(p=>p.source.split(",")).map(s=>s.trim()).filter(Boolean))].sort();
