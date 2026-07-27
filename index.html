@@ -783,7 +783,9 @@
     const expired=DB.filter(p=>p.status==="expired").length;
     $("#stats").innerHTML=`${stat(active.length.toLocaleString(),"전체 인물","accent")}${stat(companies.size.toLocaleString(),"회사 수","")}${stat(actCount.toLocaleString(),"활동기록","")}${stat(expired,"말소 대기","warn")}`;
     const cnt={}; active.forEach(p=>cnt[p.category]=(cnt[p.category]||0)+1);
-    $("#catStats").innerHTML=CATS.map(s=>`<button class="src-stat" data-jump="${esc(s)}" style="border-left:3px solid ${CAT_COLOR[s]}"><b>${cnt[s]||0}</b>${esc(s)}</button>`).join("");
+    const customCats=Object.keys(cnt).filter(c=>c&&!CATS.includes(c)).sort((a,b)=>cnt[b]-cnt[a]);
+    const tile=s=>`<button class="src-stat" data-jump="${esc(s)}" style="border-left:3px solid ${catColor(s)}"><b>${cnt[s]||0}</b>${esc(s)}</button>`;
+    $("#catStats").innerHTML=CATS.map(tile).join("")+customCats.map(tile).join("");
     $$("#catStats [data-jump]").forEach(b=>b.onclick=()=>{ catFilter=b.dataset.jump; projectFilter=""; lastQuery=""; $("#mainSearch").value=""; scope="all"; $$("#scopeFilters .chip").forEach(x=>x.classList.toggle("active",x.dataset.scope==="all")); go("people"); renderCatFilters(); renderProjBanner(); renderPeople(); });
     const recent=[...active].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,6);
     $("#recentGrid").innerHTML=recent.length?recent.map(p=>card(p,"")).join(""):`<div style="color:var(--text-mute);padding:10px">표시할 데이터가 없습니다.</div>`;
